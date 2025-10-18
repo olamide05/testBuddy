@@ -1,13 +1,15 @@
 import React from 'react';
 import CalendarPage from './CalendarPage'; // Assuming your calendar logic is here
 import { Header, Footer } from './headerfooter'; // Import Header and Footer
-import './App.css'; // Optional, if you have global styles
+import './App.css'; 
+
 
 function App() {
   return (
     <div className="App">
       <Header />
       <main>
+        // Render the CalendarPage component
         <CalendarPage />
       </main>
       <Footer />
