@@ -1,23 +1,16 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import CalendarPage from './CalendarPage'; // Assuming your calendar logic is here
+import { Header, Footer } from './headerfooter'; // Import Header and Footer
+import './App.css'; // Optional, if you have global styles
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <Header />
+      <main>
+        <CalendarPage />
+      </main>
+      <Footer />
     </div>
   );
 }
