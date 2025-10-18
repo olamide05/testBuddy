@@ -1,0 +1,40 @@
+{
+  "route_name": "Tallaght Test Route 1",
+  "centre": "Tallaght",
+  "difficulty": "Medium",
+  "description": "Standard route covering residential, dual carriageway, and roundabouts",
+  "duration_minutes": 35,
+  "common_fails": ["Roundabout observation", "Speed control on N81", "Reverse parking"],
+  "waypoints": [
+    {
+      "lat": 53.2876,
+      "lng": -6.3730,
+      "name": "Test Centre Exit",
+      "description": "Airton Road, start point"
+    },
+    {
+      "lat": 53.2891,
+      "lng": -6.3745,
+      "name": "First Roundabout",
+      "description": "Belgard Road roundabout - busy junction"
+    },
+    {
+      "lat": 53.2903,
+      "lng": -6.3758,
+      "name": "N81 Entry",
+      "description": "Dual carriageway merge point"
+    },
+    {
+      "lat": 53.2920,
+      "lng": -6.3770,
+      "name": "Residential Area",
+      "description": "Narrow streets with parked cars"
+    },
+    {
+      "lat": 53.2935,
+      "lng": -6.3755,
+      "name": "Return Junction",
+      "description": "T-junction back to test centre"
+    }
+  ]
+}

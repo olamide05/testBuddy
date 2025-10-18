@@ -1,0 +1,164 @@
+{
+  "scenarios": [
+    {
+      "id": "roundabout_1",
+      "waypoint_idx": 1,
+      "location": "First Roundabout Approach",
+      "situation": "You're approaching a busy roundabout. Traffic is flowing steadily from the right. A cyclist is ahead of you.",
+      "image_hint": "🔄",
+      "difficulty": "medium",
+      "choices": [
+        {
+          "text": "Slow to 20km/h, check right mirror, shoulder check, yield to traffic, then enter when clear",
+          "correct": true,
+          "feedback": "Perfect! Excellent observation and positioning. The shoulder check for the cyclist was crucial.",
+          "xp": 50,
+          "skill": "observation"
+        },
+        {
+          "text": "Maintain 40km/h and enter quickly to avoid holding up traffic behind",
+          "correct": false,
+          "feedback": "Dangerous! You must yield to traffic from the right. Speed and impatience cause fails. This would be marked as a Grade 3 fault.",
+          "xp": 0,
+          "penalty": "FAIL",
+          "skill": "observation"
+        },
+        {
+          "text": "Stop completely at the yield line and wait 5 seconds before proceeding",
+          "correct": false,
+          "feedback": "Over-cautious. You should yield but not stop unnecessarily when it's clear. This causes traffic disruption.",
+          "xp": 15,
+          "skill": "observation"
+        }
+      ]
+    },
+    {
+      "id": "speed_zone",
+      "waypoint_idx": 2,
+      "location": "N81 Dual Carriageway",
+      "situation": "You're merging onto the N81. Speed limit is 80km/h. Traffic in the left lane is moving at 75km/h.",
+      "image_hint": "🛣️",
+      "difficulty": "medium",
+      "choices": [
+        {
+          "text": "Accelerate smoothly to 75km/h, check mirrors, signal, and merge when safe gap appears",
+          "correct": true,
+          "feedback": "Excellent! You matched traffic speed and merged safely. Good use of mirrors and signals.",
+          "xp": 50,
+          "skill": "speed_control"
+        },
+        {
+          "text": "Merge at 50km/h - better to be safe than sorry",
+          "correct": false,
+          "feedback": "Too slow! Merging well below traffic speed creates a hazard. You need to match the flow of traffic.",
+          "xp": 10,
+          "skill": "speed_control"
+        },
+        {
+          "text": "Accelerate to 85km/h to get ahead of traffic before merging",
+          "correct": false,
+          "feedback": "Speeding! Never exceed the limit, even when merging. Match traffic speed within the legal limit.",
+          "xp": 5,
+          "penalty": "Grade 2 Fault",
+          "skill": "speed_control"
+        }
+      ]
+    },
+    {
+      "id": "residential",
+      "waypoint_idx": 3,
+      "location": "Narrow Residential Street",
+      "situation": "You're on a narrow street with cars parked on both sides. A child's ball rolls into the road 30m ahead.",
+      "image_hint": "⚽",
+      "difficulty": "hard",
+      "choices": [
+        {
+          "text": "Immediately slow down, cover the brake, scan for the child, and be prepared to stop completely",
+          "correct": true,
+          "feedback": "Perfect hazard perception! You anticipated that a child might follow the ball. This is exactly what examiners look for.",
+          "xp": 60,
+          "skill": "hazard_perception"
+        },
+        {
+          "text": "Maintain speed but sound horn to warn any children",
+          "correct": false,
+          "feedback": "Wrong! Sounding the horn doesn't remove the danger. You must slow down. This shows poor hazard awareness.",
+          "xp": 0,
+          "penalty": "FAIL",
+          "skill": "hazard_perception"
+        },
+        {
+          "text": "Swerve around the ball to maintain progress",
+          "correct": false,
+          "feedback": "Dangerous! Never swerve suddenly - you could hit an oncoming car or lose control. Always slow down first.",
+          "xp": 5,
+          "skill": "hazard_perception"
+        }
+      ]
+    },
+    {
+      "id": "parking",
+      "waypoint_idx": 3,
+      "location": "Side Street - Parking Manoeuvre",
+      "situation": "The examiner asks you to reverse around the corner on your left. There's a lamppost on the corner.",
+      "image_hint": "🅿️",
+      "difficulty": "medium",
+      "choices": [
+        {
+          "text": "Check all mirrors, signal left, stop parallel to kerb, then reverse slowly with constant observation all around, keeping within 30cm of kerb",
+          "correct": true,
+          "feedback": "Textbook reversing! Constant observation and good positioning. You stayed close to the kerb without mounting it.",
+          "xp": 55,
+          "skill": "manoeuvres"
+        },
+        {
+          "text": "Reverse quickly to show confidence, steering sharply to get around fast",
+          "correct": false,
+          "feedback": "Too fast! Manoeuvres should be slow and controlled. You risk hitting the kerb or the lamppost. This would fail you.",
+          "xp": 0,
+          "penalty": "FAIL",
+          "skill": "manoeuvres"
+        },
+        {
+          "text": "Position 50cm from kerb and reverse, focusing mainly on the rear window",
+          "correct": false,
+          "feedback": "Poor positioning - you're too far from the kerb. You must also check all around, not just the rear.",
+          "xp": 20,
+          "skill": "manoeuvres"
+        }
+      ]
+    },
+    {
+      "id": "junction",
+      "waypoint_idx": 4,
+      "location": "T-Junction Turn",
+      "situation": "You need to turn right at a T-junction onto a busy main road. Visibility is limited due to a hedge.",
+      "image_hint": "🌳",
+      "difficulty": "hard",
+      "choices": [
+        {
+          "text": "Approach slowly, stop at the line, creep forward for better view, check both ways multiple times, wait for a safe gap",
+          "correct": true,
+          "feedback": "Excellent! You compensated for poor visibility by creeping forward. Patient waiting for a proper gap shows good judgement.",
+          "xp": 50,
+          "skill": "junctions"
+        },
+        {
+          "text": "Edge out quickly to get a view, then commit to the turn if there's any gap",
+          "correct": false,
+          "feedback": "Dangerous! Edging out quickly with limited visibility could cause a collision. Always creep forward slowly.",
+          "xp": 5,
+          "penalty": "Grade 3 Fault",
+          "skill": "junctions"
+        },
+        {
+          "text": "Wait at the line for 30 seconds to be sure it's safe",
+          "correct": false,
+          "feedback": "Over-cautious. You must creep forward to improve visibility - you can't see properly from the line due to the hedge.",
+          "xp": 15,
+          "skill": "junctions"
+        }
+      ]
+    }
+  ]
+}

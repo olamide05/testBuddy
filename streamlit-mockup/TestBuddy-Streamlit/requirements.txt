@@ -1,0 +1,19 @@
+# Core framework
+streamlit
+
+# Data manipulation
+pandas
+numpy
+plotly
+googlemaps
+
+# Visualization
+plotly
+folium
+streamlit-folium
+
+# AI/ML
+google-generativeai
+
+# Utilities
+python-dotenv
