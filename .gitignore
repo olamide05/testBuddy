@@ -24,3 +24,15 @@ yarn-error.log*
 
 # driving-test-ai
 /driving-test-ai/backend/.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+.coverage
+htmlcov/
