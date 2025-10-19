@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     GCP_PROJECT_ID: str = "bgn-ie-hack25dub-707"
     GCP_LOCATION: str = "us-central1"
     IMAGES_PATH: str = "./data/scenario_images"
-    GCP_API_KEY: str = "AIzaSyCU4iYDkBNu5lbrjInj0CXWeK1gWNKSUi8"
+    GEMINI_API_KEY: str = "AIzaSyCU4iYDkBNu5lbrjInj0CXWeK1gWNKSUi8"
     
     class Config:
         env_file = ".env"
