@@ -1,0 +1,451 @@
+/* booking.css - Professional UI/UX styling for TestBuddy */
+
+/* ===== ROOT VARIABLES ===== */
+:root {
+  --primary-teal: #1ca9a0;
+  --primary-teal-light: #22c4b9;
+  --primary-teal-dark: #148d86;
+  --primary-gradient: linear-gradient(135deg, #22c4b9 0%, #1ca9a0 100%);
+  --primary-gradient-hover: linear-gradient(135deg, #2dd4c8 0%, #22c4b9 100%);
+  --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --error-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  --shadow-sm: 0 1px 2px 0 rgba(28, 169, 160, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(28, 169, 160, 0.15);
+  --shadow-lg: 0 10px 15px -3px rgba(28, 169, 160, 0.2);
+  --shadow-xl: 0 20px 25px -5px rgba(28, 169, 160, 0.25);
+  --shadow-teal: 0 0 20px rgba(28, 169, 160, 0.3);
+  --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== SMOOTH SCROLLING ===== */
+* {
+  scroll-behavior: smooth;
+}
+
+/* ===== MAIN CONTAINER ===== */
+.test-centres-page {
+  position: relative;
+  animation: fadeIn 0.5s ease-in;
+}
+
+/* ===== HEADER ANIMATIONS ===== */
+.page-header {
+  animation: slideDown 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-title {
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ===== TAB STYLING ===== */
+.MuiTabs-root {
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  background: white;
+  padding: 4px;
+}
+
+.MuiTab-root {
+  border-radius: 8px;
+  font-weight: 600;
+  text-transform: none;
+  transition: var(--transition-base);
+  min-height: 48px;
+}
+
+.MuiTab-root:hover {
+  background: rgba(28, 169, 160, 0.08) !important;
+}
+
+.MuiTab-root.Mui-selected {
+  background: var(--primary-gradient) !important;
+  color: white !important;
+  box-shadow: var(--shadow-md);
+}
+
+.MuiTabs-indicator {
+  display: none;
+}
+
+/* ===== CARD ENHANCEMENTS ===== */
+.MuiCard-root {
+  border-radius: 16px !important;
+  transition: var(--transition-base);
+  border: 1px solid rgba(28, 169, 160, 0.1);
+  overflow: hidden;
+  position: relative;
+  background: white;
+}
+
+.MuiCard-root::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--primary-gradient);
+  opacity: 0;
+  transition: var(--transition-base);
+}
+
+.MuiCard-root:hover::before {
+  opacity: 1;
+}
+
+.MuiCard-root:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl) !important;
+  border-color: rgba(28, 169, 160, 0.3);
+}
+
+/* ===== GOOGLE MAP CONTAINER ===== */
+.map-container {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border: 2px solid rgba(28, 169, 160, 0.15);
+  transition: var(--transition-base);
+}
+
+.map-container:hover {
+  box-shadow: var(--shadow-teal);
+  border-color: rgba(28, 169, 160, 0.4);
+}
+
+/* ===== LOCATION SEARCH BOX ===== */
+.location-search-container {
+  position: relative;
+  animation: slideIn 0.4s ease-out;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root {
+  border-radius: 12px;
+  transition: var(--transition-base);
+  background: white;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.MuiTextField-root .MuiOutlinedInput-root.Mui-focused {
+  box-shadow: 0 0 0 3px rgba(28, 169, 160, 0.15);
+  border-color: var(--primary-teal);
+}
+
+/* ===== BUTTON ENHANCEMENTS ===== */
+.MuiButton-contained {
+  border-radius: 10px;
+  text-transform: none;
+  font-weight: 600;
+  padding: 10px 20px;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-base);
+  background: var(--primary-gradient);
+  position: relative;
+  overflow: hidden;
+}
+
+.MuiButton-contained::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.MuiButton-contained:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.MuiButton-contained:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background: var(--primary-gradient-hover) !important;
+}
+
+.MuiButton-contained:active {
+  transform: translateY(0);
+}
+
+.MuiButton-outlined {
+  border-radius: 10px;
+  text-transform: none;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-width: 2px;
+  transition: var(--transition-base);
+}
+
+.MuiButton-outlined:hover {
+  border-width: 2px;
+  background: rgba(28, 169, 160, 0.08);
+  transform: translateY(-1px);
+  border-color: var(--primary-teal);
+}
+
+/* ===== STAT CARDS ===== */
+.stat-card {
+  border-radius: 12px;
+  transition: var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--primary-gradient);
+  opacity: 0;
+  transition: var(--transition-base);
+}
+
+.stat-card:hover::before {
+  opacity: 0.05;
+}
+
+.stat-card:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===== CHIP ENHANCEMENTS ===== */
+.MuiChip-root {
+  border-radius: 8px;
+  font-weight: 600;
+  transition: var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.MuiChip-root:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.MuiChip-colorSuccess {
+  background: var(--success-gradient);
+}
+
+.MuiChip-colorWarning {
+  background: var(--warning-gradient);
+}
+
+.MuiChip-colorError {
+  background: var(--error-gradient);
+}
+
+/* ===== ALERT ENHANCEMENTS ===== */
+.MuiAlert-root {
+  border-radius: 12px;
+  border: none;
+  box-shadow: var(--shadow-sm);
+  animation: slideIn 0.4s ease-out;
+}
+
+.MuiAlert-standardSuccess {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border-left: 4px solid #10b981;
+}
+
+.MuiAlert-standardInfo {
+  background: linear-gradient(135deg, rgba(28, 169, 160, 0.08) 0%, rgba(20, 141, 134, 0.08) 100%);
+  border-left: 4px solid var(--primary-teal);
+}
+
+.MuiAlert-standardWarning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border-left: 4px solid #f59e0b;
+}
+
+.MuiAlert-standardError {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border-left: 4px solid #ef4444;
+}
+
+/* ===== LEGEND DOTS ===== */
+.legend-dot {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+  transition: var(--transition-fast);
+}
+
+.legend-dot:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== LIST ITEMS ===== */
+.MuiListItem-root {
+  border-radius: 8px;
+  transition: var(--transition-base);
+  margin-bottom: 4px;
+}
+
+.MuiListItem-root:hover {
+  background: rgba(28, 169, 160, 0.06);
+  transform: translateX(4px);
+}
+
+/* ===== DIVIDER ENHANCEMENTS ===== */
+.MuiDivider-root {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ===== LOADING STATE ===== */
+.loading-container {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ===== INFO WINDOW CUSTOM STYLING ===== */
+.gm-style .gm-style-iw-c {
+  border-radius: 16px !important;
+  box-shadow: var(--shadow-xl) !important;
+  padding: 0 !important;
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: auto !important;
+}
+
+.gm-style-iw button {
+  top: 8px !important;
+  right: 8px !important;
+}
+
+/* ===== RESPONSIVE GRID ANIMATIONS ===== */
+.MuiGrid-item {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.MuiGrid-item:nth-child(1) { animation-delay: 0.1s; }
+.MuiGrid-item:nth-child(2) { animation-delay: 0.2s; }
+.MuiGrid-item:nth-child(3) { animation-delay: 0.3s; }
+.MuiGrid-item:nth-child(4) { animation-delay: 0.4s; }
+
+/* ===== KEYFRAME ANIMATIONS ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 1;
+  }
+  to {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* ===== MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 900px) {
+  .MuiCard-root:hover {
+    transform: none;
+  }
+  
+  .stat-card:hover {
+    transform: none;
+  }
+  
+  .MuiButton-contained:hover {
+    transform: none;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== FOCUS STATES ===== */
+.MuiButton-root:focus-visible,
+.MuiTextField-root:focus-visible,
+.MuiChip-root:focus-visible {
+  outline: 3px solid rgba(28, 169, 160, 0.5);
+  outline-offset: 2px;
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .MuiButton-root,
+  .MuiTabs-root {
+    display: none;
+  }
+  
+  .MuiCard-root {
+    page-break-inside: avoid;
+  }
+}
