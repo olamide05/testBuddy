@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Github, Twitter } from 'lucide-react';
-import { auth } from '../firebase'; // Make sure this path is correct
+import { auth } from '../firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword 
@@ -14,8 +14,8 @@ const formVariants = {
 };
 
 const panelVariants = {
-  login: { backgroundColor: '#2563EB' }, // Blue for login
-  signup: { backgroundColor: '#16A34A' }, // Green for signup
+  login: { backgroundColor: '#2563EB' },
+  signup: { backgroundColor: '#16A34A' },
 };
 
 // --- Reusable InputField Component ---
@@ -34,7 +34,7 @@ const InputField = ({ icon: Icon, placeholder, type, value, onChange }) => (
 );
 
 // --- Main Login/Signup Component ---
-export default function LoginSignupPage() {
+export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -53,13 +53,40 @@ export default function LoginSignupPage() {
     try {
       const userCredential = await action;
       console.log(isLogin ? "Logged in:" : "Registered:", userCredential.user);
-      alert(isLogin ? "Login successful!" : "Registration successful! Please log in.");
-      if (!isLogin) {
-        setIsLogin(true); // Switch to login after successful registration
-        // Here you would also save the 'name' to your database (e.g., Firestore)
+      
+      if (isLogin) {
+        // LOGIN SUCCESS - Call parent's onLogin function
+        if (onLogin) {
+          onLogin({
+            name: userCredential.user.displayName || name || email.split('@')[0],
+            email: userCredential.user.email,
+            uid: userCredential.user.uid
+          });
+        }
+      } else {
+        // SIGNUP SUCCESS
+        alert("Registration successful! Please log in.");
+        setIsLogin(true); // Switch to login mode
+        setPassword(''); // Clear password for security
+        
+        // Optionally save additional user data to Firestore here
+        // await setDoc(doc(db, "users", userCredential.user.uid), {
+        //   name: name,
+        //   email: email,
+        //   createdAt: new Date()
+        // });
       }
     } catch (err) {
-      setError(err.message);
+      // Better error messages
+      const errorMessages = {
+        'auth/user-not-found': 'No account found with this email.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/email-already-in-use': 'An account with this email already exists.',
+        'auth/weak-password': 'Password should be at least 6 characters.',
+        'auth/invalid-email': 'Invalid email address.',
+        'auth/too-many-requests': 'Too many attempts. Please try again later.'
+      };
+      setError(errorMessages[err.code] || err.message);
     }
   };
 
@@ -86,12 +113,45 @@ export default function LoginSignupPage() {
               
               <form onSubmit={handleAuthAction}>
                 {!isLogin && (
-                  <InputField icon={User} placeholder="Full Name" type="text" value={name} onChange={e => setName(e.target.value)} />
+                  <InputField 
+                    icon={User} 
+                    placeholder="Full Name" 
+                    type="text" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)} 
+                  />
                 )}
-                <InputField icon={Mail} placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-                <InputField icon={Lock} placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+                <InputField 
+                  icon={Mail} 
+                  placeholder="Email" 
+                  type="email" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                />
+                <InputField 
+                  icon={Lock} 
+                  placeholder="Password" 
+                  type="password" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                />
                 
-                {error && <p style={{ color: '#ef4444', marginBottom: '15px' }}>{error}</p>}
+                {error && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ 
+                      color: '#ef4444', 
+                      marginBottom: '15px', 
+                      backgroundColor: '#fee2e2', 
+                      padding: '10px', 
+                      borderRadius: '8px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    {error}
+                  </motion.p>
+                )}
                 
                 <div style={{ marginTop: '32px' }}>
                   <motion.button
@@ -123,8 +183,30 @@ export default function LoginSignupPage() {
                 <div style={{ marginTop: '24px' }}>
                   <p style={{ textAlign: 'center', color: '#6b7280' }}>or sign in with</p>
                   <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
-                    <motion.button whileHover={{ scale: 1.1 }} style={{ padding: '12px', backgroundColor: '#f3f4f6', borderRadius: '50%', border: 'none', cursor: 'pointer' }}><Github size={24} color="#374151" /></motion.button>
-                    <motion.button whileHover={{ scale: 1.1 }} style={{ padding: '12px', backgroundColor: '#f3f4f6', borderRadius: '50%', border: 'none', cursor: 'pointer' }}><Twitter size={24} color="#374151" /></motion.button>
+                    <motion.button 
+                      whileHover={{ scale: 1.1 }} 
+                      style={{ 
+                        padding: '12px', 
+                        backgroundColor: '#f3f4f6', 
+                        borderRadius: '50%', 
+                        border: 'none', 
+                        cursor: 'pointer' 
+                      }}
+                    >
+                      <Github size={24} color="#374151" />
+                    </motion.button>
+                    <motion.button 
+                      whileHover={{ scale: 1.1 }} 
+                      style={{ 
+                        padding: '12px', 
+                        backgroundColor: '#f3f4f6', 
+                        borderRadius: '50%', 
+                        border: 'none', 
+                        cursor: 'pointer' 
+                      }}
+                    >
+                      <Twitter size={24} color="#374151" />
+                    </motion.button>
                   </div>
                 </div>
               )}

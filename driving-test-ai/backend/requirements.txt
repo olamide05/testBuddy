@@ -1,6 +1,8 @@
+requests
 fastapi
 uvicorn[standard]
 google-genai
 pydantic-settings
 python-dotenv
 aiofiles
+pillow

@@ -8,6 +8,8 @@ from app import services
 import uuid
 import os
 
+from app.models import DrivingAnalysisRequest
+
 app = FastAPI(title="Irish Driving Test AI")
 
 # CORS
@@ -37,6 +39,30 @@ class SubmitAnswer(BaseModel):
 @app.get("/")
 def root():
     return {"status": "ok", "message": "Irish Driving Test AI"}
+
+@app.post("/api/analyze-driving")
+async def analyze_driving(request: DrivingAnalysisRequest):
+    """
+    Analyze a user's driving observation performance.
+    """
+    try:
+        # Convert Pydantic model to dicts
+        actions_dict = [a.dict() for a in request.actions]
+
+        # Call your analysis function
+        result = services.analyze_driving_performance(
+            video_url=request.videoUrl,
+            actions=actions_dict,
+            video_type=request.videoType,
+            potential_hazards=request.potentialHazards
+        )
+
+        return result
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing driving: {str(e)}")
 
 @app.post("/api/session/start")
 def start_session(data: StartSession):
