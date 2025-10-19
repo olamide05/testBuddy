@@ -13,6 +13,9 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { PickersDay } from '@mui/x-date-pickers/PickersDay';
 import dayjs from 'dayjs';
+import { useNavigate } from 'react-router-dom'; 
+//import { UserPlus } from '@mui/icons-material';
+
 // --- No Results Component ---
 const NoResults = ({ query }) => (
     <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 8 }}>
@@ -446,6 +449,8 @@ export default function InstructorsPage({ onRegisterClick }) {
     const [query, setQuery] = useState("");
     const [selectedInstructor, setSelectedInstructor] = useState(null);
 
+    const navigate = useNavigate();   // 👈 Initialize navigation
+    
     useEffect(() => {
         const fetchInstructors = async () => {
             try {
@@ -499,7 +504,12 @@ export default function InstructorsPage({ onRegisterClick }) {
                     <Typography variant="h4" fontWeight="bold">Find an Instructor</Typography>
                     <Typography color="text.secondary">Search for the perfect instructor to guide you on your journey.</Typography>
                 </Box>
-                <Button onClick={onRegisterClick} variant="contained" disableElevation startIcon={<UserPlus />}>
+                <Button 
+                   variant="contained" 
+                   disableElevation 
+                   startIcon={<UserPlus />}
+                   onClick={() => navigate('/become-instructor')}
+                   >
                     Become an Instructor
                 </Button>
             </Box>
