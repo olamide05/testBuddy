@@ -9,7 +9,7 @@ import {
   DirectionsCar, School, MonetizationOn, Assignment, AccountCircle, 
   Login as LoginIcon, Logout as LogoutIcon, SwapHoriz  
 } from '@mui/icons-material';
-import { auth } from './firebase'; // Make sure this path is correct
+import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // --- Page Imports ---
@@ -30,25 +30,24 @@ import ProtectedRoute from './protected-route';
 const openDrawerWidth = 260;
 const closedDrawerWidth = 72;
 const headerHeight = 64;
+const TESTBUDDY_COLOR = '#17a2b8'; // ✅ TestBuddy teal color from logo
 
 // --- Layout Component (with navigation) ---
 function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState({ loggedIn: false, name: '' });
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ PERSIST AUTH STATE - Listen to Firebase auth changes
+  // ✅ PERSIST AUTH STATE
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // User is signed in - restore from localStorage or Firebase
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         } else {
-          // Set from Firebase user
           const userData = {
             loggedIn: true,
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
@@ -59,14 +58,12 @@ function AppLayout() {
           localStorage.setItem('user', JSON.stringify(userData));
         }
       } else {
-        // User is signed out
         setUser({ loggedIn: false, name: '' });
         localStorage.removeItem('user');
       }
       setLoading(false);
     });
 
-    // Cleanup subscription
     return () => unsubscribe();
   }, []);
 
@@ -82,22 +79,21 @@ function AppLayout() {
       uid: userData?.uid
     };
     setUser(user);
-    localStorage.setItem('user', JSON.stringify(user)); // Persist to localStorage
+    localStorage.setItem('user', JSON.stringify(user));
     navigate('/dashboard');
   };
 
   const handleLogout = async () => {
     try {
-      await signOut(auth); // Sign out from Firebase
+      await signOut(auth);
       setUser({ loggedIn: false, name: '' });
-      localStorage.removeItem('user'); // Clear localStorage
+      localStorage.removeItem('user');
       navigate('/');
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  // Handle navigation with authentication check
   const handleNavigation = (path, requiresAuth) => {
     if (requiresAuth && !user.loggedIn) {
       navigate('/login');
@@ -118,43 +114,166 @@ function AppLayout() {
     { path: '/profile', label: 'My Profile', icon: <AccountCircle />, requiresAuth: true },
   ];
 
-  // Get current page label
   const currentPage = menuItems.find(item => item.path === location.pathname);
-  const pageTitle = currentPage?.label || (location.pathname === '/' ? 'Home' : 'DriveNow');
+  const pageTitle = currentPage?.label || (location.pathname === '/' ? 'Home' : 'TestBuddy');
 
   const drawerContent = (
     <div>
-      <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: [2], height: `${headerHeight}px` }}>
+      {/* ✨ Enhanced Sidebar Header with TestBuddy Color */}
+      <Toolbar 
+        sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          px: 2.5, 
+          height: `${headerHeight}px`,
+          backgroundColor: TESTBUDDY_COLOR,
+          color: 'white',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }}
+      >
         {isSidebarOpen && (
-          <Typography variant="h5" noWrap sx={{ fontWeight: 'bold', cursor: 'pointer' }} onClick={() => navigate('/')}>
-            DriveNow
+          <Typography 
+            variant="h5" 
+            noWrap 
+            sx={{ 
+              fontWeight: 700, 
+              cursor: 'pointer',
+              letterSpacing: '-0.5px',
+              fontSize: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }} 
+            onClick={() => navigate('/')}
+          >
+            TestBuddy
           </Typography>
         )}
-        <IconButton onClick={handleSidebarToggle}>
+        {!isSidebarOpen && (
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              fontSize: '1.75rem',
+              cursor: 'pointer'
+            }} 
+            onClick={() => navigate('/')}
+          >
+            
+          </Typography>
+        )}
+        <IconButton 
+          onClick={handleSidebarToggle}
+          sx={{
+            color: 'white',
+            '&:hover': {
+              backgroundColor: 'rgba(255,255,255,0.15)'
+            }
+          }}
+        >
           {isSidebarOpen ? <ChevronLeftIcon /> : <MenuIcon />}
         </IconButton>
       </Toolbar>
-      <Divider />
-      <List>
-        {menuItems.map(({ path, label, icon, requiresAuth }) => (
-          <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={path}>
-            <ListItemButton 
-              sx={{ py: 1.5 }} 
-              onClick={() => handleNavigation(path, requiresAuth)} 
-              selected={location.pathname === path}
-            >
-              <ListItemIcon>{icon}</ListItemIcon>
-              {isSidebarOpen && <ListItemText primary={label} />}
-            </ListItemButton>
-          </Tooltip>
-        ))}
+      
+      <Divider sx={{ borderColor: 'rgba(0,0,0,0.08)' }} />
+      
+      {/* ✨ Enhanced Menu Items with TestBuddy Color */}
+      <List sx={{ px: 1.5, py: 2 }}>
+        {menuItems.map(({ path, label, icon, requiresAuth }) => {
+          const isSelected = location.pathname === path;
+          return (
+            <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={path}>
+              <ListItemButton 
+                sx={{ 
+                  py: 1.5,
+                  px: 2,
+                  mb: 0.5,
+                  borderRadius: '12px',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  backgroundColor: isSelected ? `${TESTBUDDY_COLOR}15` : 'transparent',
+                  color: isSelected ? TESTBUDDY_COLOR : 'inherit',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    backgroundColor: isSelected ? `${TESTBUDDY_COLOR}25` : 'rgba(0,0,0,0.04)',
+                    transform: 'translateX(4px)',
+                    boxShadow: isSelected ? `0 4px 12px ${TESTBUDDY_COLOR}40` : 'none'
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '4px',
+                    backgroundColor: TESTBUDDY_COLOR,
+                    opacity: isSelected ? 1 : 0,
+                    transition: 'opacity 0.3s',
+                    borderRadius: '0 4px 4px 0'
+                  }
+                }} 
+                onClick={() => handleNavigation(path, requiresAuth)}
+              >
+                <ListItemIcon 
+                  sx={{ 
+                    color: isSelected ? TESTBUDDY_COLOR : 'rgba(0,0,0,0.6)',
+                    minWidth: isSidebarOpen ? 40 : 'auto',
+                    '& svg': {
+                      fontSize: '1.4rem',
+                      transition: 'transform 0.3s',
+                    },
+                    '&:hover svg': {
+                      transform: 'scale(1.1)'
+                    }
+                  }}
+                >
+                  {icon}
+                </ListItemIcon>
+                {isSidebarOpen && (
+                  <ListItemText 
+                    primary={label}
+                    primaryTypographyProps={{
+                      fontSize: '0.95rem',
+                      fontWeight: isSelected ? 600 : 500,
+                      letterSpacing: '0.02em'
+                    }}
+                  />
+                )}
+              </ListItemButton>
+            </Tooltip>
+          );
+        })}
       </List>
+
+      {/* ✨ Footer Section with TestBuddy Color */}
+      {isSidebarOpen && (
+        <Box 
+          sx={{ 
+            position: 'absolute', 
+            bottom: 20, 
+            left: 20, 
+            right: 20,
+            px: 2,
+            py: 1.5,
+            borderRadius: '12px',
+            backgroundColor: `${TESTBUDDY_COLOR}10`,
+            border: `1px solid ${TESTBUDDY_COLOR}30`
+          }}
+        >
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem' }}>
+            © 2025 TestBuddy
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+            Your driving test companion
+          </Typography>
+        </Box>
+      )}
     </div>
   );
 
   const currentWidth = isSidebarOpen ? openDrawerWidth : closedDrawerWidth;
 
-  // Show loading state while checking auth
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -167,12 +286,14 @@ function AppLayout() {
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
       
-      {/* Header / AppBar */}
+      {/* ✨ Enhanced Header with TestBuddy Color */}
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${currentWidth}px)` },
           ml: { sm: `${currentWidth}px` },
+          backgroundColor: TESTBUDDY_COLOR,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
           transition: (theme) => theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -180,19 +301,25 @@ function AppLayout() {
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between', height: `${headerHeight}px` }}>
-          <Typography variant="h6" noWrap>
+          <Typography variant="h6" noWrap sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
             {pageTitle}
           </Typography>
           
-          {/* RIGHT SIDE: Login/Logout + User Info */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {user.loggedIn ? (
               <>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                    {user.name ? user.name.charAt(0) : 'U'}
+                  <Avatar 
+                    sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.3)',
+                      color: 'white',
+                      fontWeight: 700,
+                      border: '2px solid rgba(255,255,255,0.5)'
+                    }}
+                  >
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                   </Avatar>
-                  <Typography sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 500 }}>
                     {user.name || 'User'}
                   </Typography>
                 </Box>
@@ -200,11 +327,27 @@ function AppLayout() {
                   color="inherit" 
                   onClick={handleLogout}
                   startIcon={<LogoutIcon />}
-                  sx={{ display: { xs: 'none', sm: 'flex' } }}
+                  sx={{ 
+                    display: { xs: 'none', sm: 'flex' },
+                    borderRadius: '8px',
+                    px: 2,
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.15)'
+                    }
+                  }}
                 >
                   Logout
                 </Button>
-                <IconButton color="inherit" onClick={handleLogout} sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                <IconButton 
+                  color="inherit" 
+                  onClick={handleLogout} 
+                  sx={{ 
+                    display: { xs: 'flex', sm: 'none' },
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.15)'
+                    }
+                  }}
+                >
                   <LogoutIcon />
                 </IconButton>
               </>
@@ -214,14 +357,26 @@ function AppLayout() {
                   color="inherit" 
                   onClick={() => navigate('/login')}
                   startIcon={<LoginIcon />}
-                  sx={{ display: { xs: 'none', sm: 'flex' } }}
+                  sx={{ 
+                    display: { xs: 'none', sm: 'flex' },
+                    borderRadius: '8px',
+                    px: 2,
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.15)'
+                    }
+                  }}
                 >
                   Login
                 </Button>
                 <IconButton 
                   color="inherit" 
                   onClick={() => navigate('/login')} 
-                  sx={{ display: { xs: 'flex', sm: 'none' } }}
+                  sx={{ 
+                    display: { xs: 'flex', sm: 'none' },
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.15)'
+                    }
+                  }}
                 >
                   <LoginIcon />
                 </IconButton>
@@ -231,7 +386,7 @@ function AppLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar / Drawer */}
+      {/* ✨ Enhanced Sidebar / Drawer */}
       <Drawer
         variant="permanent"
         open={isSidebarOpen}
@@ -246,6 +401,9 @@ function AppLayout() {
               duration: theme.transitions.duration.enteringScreen,
             }),
             overflowX: 'hidden',
+            borderRight: '1px solid rgba(0,0,0,0.08)',
+            boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
+            background: '#ffffff'
           },
           display: { xs: 'none', sm: 'block' }
         }}
@@ -259,60 +417,24 @@ function AppLayout() {
         sx={{
           flexGrow: 1,
           p: 3,
-          bgcolor: '#f4f6f8',
+          bgcolor: '#f5f7fa',
           minHeight: '100vh',
           mt: `${headerHeight}px`,
         }}
       >
         <Routes>
-          {/* Public Routes */}
           <Route path="/" element={<LandingPage onGetStarted={() => navigate('/login')} />} />
           <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
           <Route path="/become-instructor" element={<BecomeInstructorPage />} />
+          <Route path="/dashboard" element={<ProtectedRoute user={user} loading={loading}><Dashboard /></ProtectedRoute>} />
+          <Route path="/booking" element={<ProtectedRoute user={user} loading={loading}><BookingPage /></ProtectedRoute>} />
+          <Route path="/theory" element={<ProtectedRoute user={user} loading={loading}><TheorySimulatorPage /></ProtectedRoute>} />
+          <Route path="/swap" element={<ProtectedRoute user={user} loading={loading}><SwapMarketPage /></ProtectedRoute>} />
+          <Route path="/insurance" element={<ProtectedRoute user={user} loading={loading}><InsurancePage /></ProtectedRoute>} />
+          <Route path="/instructors" element={<ProtectedRoute user={user} loading={loading}><AdvertisementPage /></ProtectedRoute>} />
+          <Route path="/live-video" element={<ProtectedRoute user={user} loading={loading}><LiveVideo /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute user={user} loading={loading}><ProfilePage user={user} /></ProtectedRoute>} />
 
-          {/* Protected Routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute user={user}>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/booking" element={
-            <ProtectedRoute user={user}>
-              <BookingPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/theory" element={
-            <ProtectedRoute user={user}>
-              <TheorySimulatorPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/swap" element={
-            <ProtectedRoute user={user}>
-              <SwapMarketPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/insurance" element={
-            <ProtectedRoute user={user}>
-              <InsurancePage />
-            </ProtectedRoute>
-          } />
-          <Route path="/instructors" element={
-            <ProtectedRoute user={user}>
-              <AdvertisementPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/live-video" element={
-            <ProtectedRoute user={user}>
-              <LiveVideo />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute user={user}>
-              <ProfilePage user={user} />
-            </ProtectedRoute>
-          } />
-
-          {/* 404 Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>
@@ -320,7 +442,6 @@ function AppLayout() {
   );
 }
 
-// --- Main App Component ---
 export default function App() {
   return (
     <BrowserRouter>

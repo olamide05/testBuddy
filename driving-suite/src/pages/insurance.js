@@ -6,8 +6,6 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
-// Initialize Firebase
-
 
 // CONSTANTS FOR CONFIGURATION
 const BASE_QUOTE_AMOUNT = 500;
