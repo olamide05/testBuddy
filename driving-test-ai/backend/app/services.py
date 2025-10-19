@@ -1,27 +1,25 @@
-# backend/app/services.py
+from app.config import settings
 from google import genai
 from google.genai import types
-from app.config import settings
 import json
 import uuid
 import random
+import os
+import PIL.Image
 
 # Categories
 CATEGORIES = ["road_signs", "right_of_way", "speed_limits", "parking", "roundabouts"]
 
-# Initialize Gemini client
-def get_gemini_client():
-    return genai.Client(
-        vertexai=True,
-        api_key=settings.GCP_API_KEY,
-    )
+# Initialize genai client once
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+
+# --- Service Functions ---
 
 # Generate a theory question
 def generate_question(category: str) -> dict:
-    client = get_gemini_client()
-    
     prompt = f"""Generate an Irish driving theory test question about {category}.
-    
+
 Return ONLY this JSON (no markdown, no extra text):
 {{
     "question": "Your question here?",
@@ -29,23 +27,22 @@ Return ONLY this JSON (no markdown, no extra text):
     "correct": "A",
     "explanation": "Why this is correct"
 }}"""
-    
+
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
-        contents=prompt
+        contents=prompt,
     )
-    
+
     # Parse response
     text = response.text.strip()
-    # Remove markdown if present
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    
+    # Handle potential markdown formatting
+    if text.startswith("```json"):
+        text = text[7:-3].strip()
+    elif text.startswith("```"):
+        text = text[3:-3].strip()
+
     data = json.loads(text)
-    
+
     return {
         "id": str(uuid.uuid4()),
         "text": data["question"],
@@ -58,16 +55,12 @@ Return ONLY this JSON (no markdown, no extra text):
         "is_correct": None
     }
 
+
 # Analyze image and generate scenario question
 def generate_scenario_question(image_path: str, category: str) -> dict:
-    client = get_gemini_client()
-    
-    # Read image
-    with open(image_path, 'rb') as f:
-        image_bytes = f.read()
-    
-    mime_type = 'image/png' if image_path.endswith('.png') else 'image/jpeg'
-    
+    # Open the image using PIL
+    img = PIL.Image.open(image_path)
+
     prompt = f"""Analyze this driving scenario image and create an Irish driving test question.
 Category: {category}
 
@@ -78,25 +71,25 @@ Return ONLY this JSON:
     "correct": "A",
     "explanation": "..."
 }}"""
-    
+
+    # Use client.models.generate_content with multimodal input
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
         contents=[
-            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            prompt
+            types.Part.from_text(prompt),
+            types.Part.from_image(img)
         ]
     )
-    
+
     # Parse response
     text = response.text.strip()
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    
+    if text.startswith("```json"):
+        text = text[7:-3].strip()
+    elif text.startswith("```"):
+        text = text[3:-3].strip()
+
     data = json.loads(text)
-    
+
     return {
         "id": str(uuid.uuid4()),
         "text": data["question"],
@@ -104,75 +97,76 @@ Return ONLY this JSON:
         "correct": data["correct"],
         "category": category,
         "explanation": data["explanation"],
-        "image_url": f"/images/{image_path.split('/')[-1]}",
+        "image_url": f"/images/{os.path.basename(image_path)}",
         "user_answer": None,
         "is_correct": None
     }
+
 
 # Evaluate answer and update state
 def evaluate_and_update(state: dict, user_answer: str) -> dict:
     q = state["current_question"]
     q["user_answer"] = user_answer
     q["is_correct"] = (user_answer == q["correct"])
-    
+
     # Add to history
     state["history"].append(q)
-    
+
     # Update scores
     cat = q["category"]
     if cat not in state["scores"]:
         state["scores"][cat] = {"correct": 0, "total": 0}
-    
+
     state["scores"][cat]["total"] += 1
     if q["is_correct"]:
         state["scores"][cat]["correct"] += 1
-    
-    # Find weak categories (< 70% accuracy)
+
+    # Find weak categories (< 70% accuracy after at least 2 questions)
     weak = []
     for category, score in state["scores"].items():
         if score["total"] >= 2:
             accuracy = (score["correct"] / score["total"]) * 100
             if accuracy < 70:
                 weak.append(category)
-    
+
     state["weak_categories"] = weak
-    
+
     return state
+
 
 # Get next question
 def get_next_question(state: dict) -> dict:
-    # First 5 questions = assessment (random categories)
+    # First 5 questions = assessment phase (random categories)
     if len(state["history"]) < 5:
         state["phase"] = "assessment"
         category = random.choice(CATEGORIES)
         q = generate_question(category)
-    
-    # After assessment = practice (target weak areas)
+
+    # After assessment = practice phase (target weak areas)
     else:
         state["phase"] = "practice"
-        # Pick weakest category or random
+        # Prioritize weakest category, otherwise pick a random one
         category = state["weak_categories"][0] if state["weak_categories"] else random.choice(CATEGORIES)
-        
-        # Every 3rd question = scenario with image
-        use_scenario = len(state["history"]) % 3 == 0
-        
-        if use_scenario:
-            import os
-            # Get random image from directory
+
+        # Every 3rd question in practice is a scenario with an image
+        is_scenario_turn = (len(state["history"]) - 5) % 3 == 0
+
+        if is_scenario_turn:
             image_dir = settings.IMAGES_PATH
-            if os.path.exists(image_dir):
-                images = [f for f in os.listdir(image_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
+            if os.path.isdir(image_dir):
+                images = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
                 if images:
-                    # Pick random image instead of always first one
                     image_file = random.choice(images)
-                    image_path = f"{image_dir}/{image_file}"
+                    image_path = os.path.join(image_dir, image_file)
                     q = generate_scenario_question(image_path, category)
                 else:
+                    # Fallback to a standard question if no images are found
                     q = generate_question(category)
             else:
+                # Fallback if image directory doesn't exist
                 q = generate_question(category)
         else:
             q = generate_question(category)
-    
+
     state["current_question"] = q
     return state
