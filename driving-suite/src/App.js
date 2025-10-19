@@ -26,24 +26,6 @@ const openDrawerWidth = 260;
 const closedDrawerWidth = 72;
 const headerHeight = 64;
 
-// --- Menu Configuration (only for logged-in users) ---
-const menuItems = [
-  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, component: <Dashboard />, requiresAuth: true },
-  { key: 'booking', label: 'Find a Test', icon: <DirectionsCar />, component: <BookingPage />, requiresAuth: true },
-  { key: 'theory', label: 'Theory & Simulator', icon: <School />, component: <TheorySimulatorPage />, requiresAuth: true },
-  { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage />, requiresAuth: true },
-  { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage />, requiresAuth: true },
-  { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage />, requiresAuth: true },
-  { key: 'live-video', label: 'Live Video', icon: <Assignment />, component: <LiveVideo />, requiresAuth: true },
-  { key: 'profile', label: 'My Profile', icon: <AccountCircle />, component: <ProfilePage />, requiresAuth: true },
-];
-
-// Landing page (for non-logged-in users)
-const publicPages = [
-  { key: 'landing', label: 'Home', component: <LandingPage />, requiresAuth: false },
-  { key: 'login', label: 'Login', component: <LoginPage />, requiresAuth: false },
-];
-
 // --- Main App Layout Component ---
 export default function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -54,9 +36,9 @@ export default function AppLayout() {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  const handleLogin = () => {
-    // Replace with actual login logic
-    setUser({ loggedIn: true, name: 'Naza' });
+  const handleLogin = (userData) => {
+    // userData can include name, email, etc. from login form
+    setUser({ loggedIn: true, name: userData?.name || 'User' });
     setCurrentPageKey('dashboard');
   };
 
@@ -65,9 +47,35 @@ export default function AppLayout() {
     setCurrentPageKey('landing');
   };
 
-  // Filter pages based on auth status
-  const availablePages = user.loggedIn ? menuItems : publicPages;
-  const currentPage = availablePages.find(p => p.key === currentPageKey) || publicPages[0];
+  // Handle navigation with authentication check
+  const handleNavigation = (pageKey, requiresAuth) => {
+    if (requiresAuth && !user.loggedIn) {
+      setCurrentPageKey('login');
+    } else {
+      setCurrentPageKey(pageKey);
+    }
+  };
+
+  // --- Menu Configuration (defined inside component to access handleLogin) ---
+  const menuItems = [
+    { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, component: <Dashboard />, requiresAuth: true },
+    { key: 'booking', label: 'Find a Test', icon: <DirectionsCar />, component: <BookingPage />, requiresAuth: true },
+    { key: 'theory', label: 'Theory & Simulator', icon: <School />, component: <TheorySimulatorPage />, requiresAuth: true },
+    { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage />, requiresAuth: true },
+    { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage />, requiresAuth: true },
+    { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage />, requiresAuth: true },
+    { key: 'live-video', label: 'Live Video', icon: <Assignment />, component: <LiveVideo />, requiresAuth: true },
+    { key: 'profile', label: 'My Profile', icon: <AccountCircle />, component: <ProfilePage user={user} />, requiresAuth: true },
+  ];
+
+  const publicPages = [
+    { key: 'landing', label: 'Home', component: <LandingPage onGetStarted={() => setCurrentPageKey('login')} />, requiresAuth: false },
+    { key: 'login', label: 'Login', component: <LoginPage onLogin={handleLogin} />, requiresAuth: false },
+  ];
+
+  // Get current page from all available pages
+  const allPages = [...menuItems, ...publicPages];
+  const currentPage = allPages.find(p => p.key === currentPageKey) || publicPages[0];
 
   const drawerContent = (
     <div>
@@ -83,11 +91,11 @@ export default function AppLayout() {
       </Toolbar>
       <Divider />
       <List>
-        {menuItems.map(({ key, label, icon }) => (
+        {menuItems.map(({ key, label, icon, requiresAuth }) => (
           <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={key}>
             <ListItemButton 
               sx={{ py: 1.5 }} 
-              onClick={() => setCurrentPageKey(key)} 
+              onClick={() => handleNavigation(key, requiresAuth)} 
               selected={currentPageKey === key}
             >
               <ListItemIcon>{icon}</ListItemIcon>
@@ -109,8 +117,8 @@ export default function AppLayout() {
       <AppBar
         position="fixed"
         sx={{
-          width: user.loggedIn ? { sm: `calc(100% - ${currentWidth}px)` } : '100%',
-          ml: user.loggedIn ? { sm: `${currentWidth}px` } : 0,
+          width: { sm: `calc(100% - ${currentWidth}px)` },
+          ml: { sm: `${currentWidth}px` },
           transition: (theme) => theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -169,29 +177,27 @@ export default function AppLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar / Drawer - ONLY show if logged in */}
-      {user.loggedIn && (
-        <Drawer
-          variant="permanent"
-          open={isSidebarOpen}
-          sx={{
+      {/* Sidebar / Drawer - ALWAYS VISIBLE */}
+      <Drawer
+        variant="permanent"
+        open={isSidebarOpen}
+        sx={{
+          width: currentWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
             width: currentWidth,
-            flexShrink: 0,
-            '& .MuiDrawer-paper': {
-              width: currentWidth,
-              boxSizing: 'border-box',
-              transition: (theme) => theme.transitions.create('width', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.enteringScreen,
-              }),
-              overflowX: 'hidden',
-            },
-            display: { xs: 'none', sm: 'block' }
-          }}
-        >
-          {drawerContent}
-        </Drawer>
-      )}
+            boxSizing: 'border-box',
+            transition: (theme) => theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+            overflowX: 'hidden',
+          },
+          display: { xs: 'none', sm: 'block' }
+        }}
+      >
+        {drawerContent}
+      </Drawer>
 
       {/* Main Content Area */}
       <Box
