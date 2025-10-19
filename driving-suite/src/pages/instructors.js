@@ -8,7 +8,11 @@ import {
 import { 
     Star, Place as PlaceIcon, Shield as ShieldIcon, ArrowBack, Search as SearchIcon, GroupAdd as UserPlus
 } from '@mui/icons-material';
-
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { PickersDay } from '@mui/x-date-pickers/PickersDay';
+import dayjs from 'dayjs';
 // --- No Results Component ---
 const NoResults = ({ query }) => (
     <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 8 }}>
@@ -20,6 +24,7 @@ const NoResults = ({ query }) => (
 );
 
 // --- Instructor Profile View Component ---
+
 // --- Instructor Profile View Component ---
 const InstructorProfileView = ({ instructor, onBack }) => (
     <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
@@ -261,7 +266,7 @@ const InstructorProfileView = ({ instructor, onBack }) => (
                         </Card>
                     </Grid>
 
-                    {/* Availability Section */}
+                    {/* ✅ UPDATED: Availability Section with Calendar */}
                     <Grid item xs={12} md={6}>
                         <Card 
                             elevation={0} 
@@ -283,49 +288,144 @@ const InstructorProfileView = ({ instructor, onBack }) => (
                                         }} 
                                     />
                                     <Typography variant="h5" fontWeight="bold">
-                                        Next 7 Days Availability
+                                        Availability Calendar
                                     </Typography>
                                 </Box>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                    {instructor.availability && instructor.availability.length > 0 ? (
-                                        instructor.availability
-                                            .sort((a, b) => new Date(a.date) - new Date(b.date))
-                                            .map(slot => (
-                                                <Box 
-                                                    key={`${slot.date}-${slot.time}`}
-                                                    sx={{ 
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        p: 2,
-                                                        bgcolor: slot.free ? 'success.50' : 'grey.100',
-                                                        borderRadius: 2,
-                                                        border: '1px solid',
-                                                        borderColor: slot.free ? 'success.200' : 'grey.300'
-                                                    }}
-                                                >
-                                                    <Box>
-                                                        <Typography variant="body1" fontWeight="bold">
-                                                            {slot.date}
-                                                        </Typography>
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            {slot.time}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Chip 
-                                                        label={slot.free ? 'Available' : 'Booked'} 
-                                                        color={slot.free ? 'success' : 'error'} 
-                                                        size="small"
-                                                        sx={{ fontWeight: 'bold' }}
-                                                    />
-                                                </Box>
-                                            ))
-                                    ) : (
-                                        <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                                            No availability information found.
+
+                                {instructor.availability && instructor.availability.length > 0 ? (
+                                    <>
+                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                            <DateCalendar
+                                                sx={{
+                                                    width: '100%',
+                                                    '& .MuiPickersCalendarHeader-root': {
+                                                        paddingLeft: 1,
+                                                        paddingRight: 1
+                                                    }
+                                                }}
+                                                slots={{
+                                                    day: (dayProps) => {
+                                                        const dateStr = dayProps.day.format('YYYY-MM-DD');
+                                                        const dayAvailability = instructor.availability.filter(
+                                                            slot => slot.date === dateStr
+                                                        );
+                                                        
+                                                        const hasAvailability = dayAvailability.length > 0;
+                                                        const hasFreeSlots = dayAvailability.some(slot => slot.free);
+                                                        const allBooked = hasAvailability && !hasFreeSlots;
+
+                                                        return (
+                                                            <Tooltip 
+                                                                title={
+                                                                    hasAvailability 
+                                                                        ? dayAvailability.map(s => `${s.time} - ${s.free ? 'Available' : 'Booked'}`).join(', ')
+                                                                        : 'No availability'
+                                                                }
+                                                                arrow
+                                                            >
+                                                                <PickersDay
+                                                                    {...dayProps}
+                                                                    sx={{
+                                                                        ...(hasFreeSlots && {
+                                                                            bgcolor: 'success.100',
+                                                                            color: 'success.dark',
+                                                                            fontWeight: 'bold',
+                                                                            border: '2px solid',
+                                                                            borderColor: 'success.main',
+                                                                            '&:hover': {
+                                                                                bgcolor: 'success.200'
+                                                                            }
+                                                                        }),
+                                                                        ...(allBooked && {
+                                                                            bgcolor: 'error.50',
+                                                                            color: 'error.main',
+                                                                            opacity: 0.6,
+                                                                            '&:hover': {
+                                                                                bgcolor: 'error.100'
+                                                                            }
+                                                                        })
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        );
+                                                    }
+                                                }}
+                                            />
+                                        </LocalizationProvider>
+
+                                        {/* Legend */}
+                                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Box sx={{ 
+                                                    width: 20, 
+                                                    height: 20, 
+                                                    bgcolor: 'success.100', 
+                                                    border: '2px solid',
+                                                    borderColor: 'success.main',
+                                                    borderRadius: 1 
+                                                }} />
+                                                <Typography variant="caption" fontWeight="500">Has Availability</Typography>
+                                            </Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Box sx={{ 
+                                                    width: 20, 
+                                                    height: 20, 
+                                                    bgcolor: 'error.50', 
+                                                    opacity: 0.6,
+                                                    borderRadius: 1 
+                                                }} />
+                                                <Typography variant="caption" fontWeight="500">Fully Booked</Typography>
+                                            </Box>
+                                        </Box>
+
+                                        <Divider sx={{ my: 2 }} />
+
+                                        {/* Upcoming Slots List */}
+                                        <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1.5 }}>
+                                            Upcoming Slots
                                         </Typography>
-                                    )}
-                                </Box>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 200, overflowY: 'auto' }}>
+                                            {instructor.availability
+                                                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                                .slice(0, 5)
+                                                .map(slot => (
+                                                    <Box 
+                                                        key={`${slot.date}-${slot.time}`}
+                                                        sx={{ 
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            p: 1.5,
+                                                            bgcolor: slot.free ? 'success.50' : 'grey.100',
+                                                            borderRadius: 2,
+                                                            border: '1px solid',
+                                                            borderColor: slot.free ? 'success.200' : 'grey.300'
+                                                        }}
+                                                    >
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight="bold">
+                                                                {dayjs(slot.date).format('MMM DD, YYYY')}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {slot.time}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Chip 
+                                                            label={slot.free ? 'Available' : 'Booked'} 
+                                                            color={slot.free ? 'success' : 'error'} 
+                                                            size="small"
+                                                            sx={{ fontWeight: 'bold' }}
+                                                        />
+                                                    </Box>
+                                                ))
+                                            }
+                                        </Box>
+                                    </>
+                                ) : (
+                                    <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                                        No availability information found.
+                                    </Typography>
+                                )}
                             </CardContent>
                         </Card>
                     </Grid>
@@ -334,6 +434,7 @@ const InstructorProfileView = ({ instructor, onBack }) => (
         </Paper>
     </Box>
 );
+
 
 
 
