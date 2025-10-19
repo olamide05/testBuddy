@@ -5,7 +5,7 @@
 // }
 import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
-import './Insurance.css';
+import './insurance.css';
 
 const InsurancePage = () => {
   const [profile, setProfile] = useState({
