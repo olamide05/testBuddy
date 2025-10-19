@@ -10,63 +10,39 @@ import PIL.Image
 # Categories
 CATEGORIES = ["road_signs", "right_of_way", "speed_limits", "parking", "roundabouts"]
 
-def get_gemini_client():
-    return genai.Client(
-        vertexai=True,
-        project=settings.GCP_PROJECT_ID,
-        location=settings.GCP_LOCATION
-    )
+# Initialize genai client once
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
+
+# --- Service Functions ---
+
+# Generate a theory question
 def generate_question(category: str) -> dict:
-    client = get_gemini_client()
-    
-    # Randomize correct answer position
-    correct_positions = ["A", "B", "C", "D"]
-    target_position = random.choice(correct_positions)
-    
     prompt = f"""Generate an Irish driving theory test question about {category}.
 
-IMPORTANT RULES:
-1. Do NOT ask about images, photos, or "this sign" - ask about general knowledge only
-2. Make the correct answer be option {target_position}
-3. Make all wrong answers plausible but clearly incorrect
-4. Vary the difficulty
-
-Return ONLY valid JSON (no markdown):
+Return ONLY this JSON (no markdown, no extra text):
 {{
-    "question": "A clear question about {category} (NO references to images)",
-    "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"],
-    "correct": "{target_position}",
-    "explanation": "Why {target_position} is correct"
-}}
+    "question": "Your question here?",
+    "options": ["A) First", "B) Second", "C) Third", "D) Fourth"],
+    "correct": "A",
+    "explanation": "Why this is correct"
+}}"""
 
-Example for {category}:
-- Good: "What is the speed limit in a built-up area?"
-- Bad: "What does this road sign mean?" (references non-existent image)
-"""
-    
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
         contents=prompt,
     )
-    
+
+    # Parse response
     text = response.text.strip()
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    
+    # Handle potential markdown formatting
+    if text.startswith("```json"):
+        text = text[7:-3].strip()
+    elif text.startswith("```"):
+        text = text[3:-3].strip()
+
     data = json.loads(text)
-    
-    # Validation: Check if question mentions images
-    question_lower = data["question"].lower()
-    bad_keywords = ["this sign", "this image", "picture", "photo", "shown", "above", "below"]
-    
-    if any(keyword in question_lower for keyword in bad_keywords):
-        # Regenerate if it references an image
-        return generate_question(category)
-    
+
     return {
         "id": str(uuid.uuid4()),
         "text": data["question"],
@@ -79,44 +55,30 @@ Example for {category}:
         "is_correct": None
     }
 
+
+# Analyze image and generate scenario question
 def generate_scenario_question(image_path: str, category: str) -> dict:
-    client = get_gemini_client()
-    
-    with open(image_path, 'rb') as f:
-        image_bytes = f.read()
-    
-    mime_type = 'image/png' if image_path.endswith('.png') else 'image/jpeg'
-    
-    # Randomize correct answer position
-    correct_positions = ["A", "B", "C", "D"]
-    target_position = random.choice(correct_positions)
-    
+    # Open the image using PIL
+    img = PIL.Image.open(image_path)
+
     prompt = f"""Analyze this driving scenario image and create an Irish driving test question.
 Category: {category}
 
-CRITICAL REQUIREMENTS:
-1. The correct answer MUST be option {target_position}
-2. Describe what you see in the image clearly
-3. Ask what the driver should do based on the image
-4. Make wrong answers plausible but clearly incorrect
-
-Return ONLY valid JSON:
+Return ONLY this JSON:
 {{
-    "question": "Based on this image showing [describe scene], what should you do?",
+    "question": "In this scenario, what should you do?",
     "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-    "correct": "{target_position}",
-    "explanation": "Explanation of why {target_position} is correct based on what's in the image"
-}}
-"""
-    
+    "correct": "A",
+    "explanation": "..."
+}}"""
+
+    # Use client.models.generate_content with multimodal input
     response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=[
-            types.Part.from_text(prompt),
-            types.Part.from_image(img)
-        ]
+        model="gemini-2.0-flash",
+        contents=[prompt, img]
     )
-    
+
+    # Parse response
     text = response.text.strip()
     if text.startswith("```json"):
         text = text[7:-3].strip()
@@ -137,13 +99,17 @@ Return ONLY valid JSON:
         "is_correct": None
     }
 
+
+# Evaluate answer and update state
 def evaluate_and_update(state: dict, user_answer: str) -> dict:
     q = state["current_question"]
     q["user_answer"] = user_answer
     q["is_correct"] = (user_answer == q["correct"])
-    
+
+    # Add to history
     state["history"].append(q)
-    
+
+    # Update scores
     cat = q["category"]
     if cat not in state["scores"]:
         state["scores"][cat] = {"correct": 0, "total": 0}
@@ -151,7 +117,8 @@ def evaluate_and_update(state: dict, user_answer: str) -> dict:
     state["scores"][cat]["total"] += 1
     if q["is_correct"]:
         state["scores"][cat]["correct"] += 1
-    
+
+    # Find weak categories (< 70% accuracy after at least 2 questions)
     weak = []
     for category, score in state["scores"].items():
         if score["total"] >= 2:
@@ -163,27 +130,34 @@ def evaluate_and_update(state: dict, user_answer: str) -> dict:
 
     return state
 
+
+# Get next question
 def get_next_question(state: dict) -> dict:
+    # First 5 questions = assessment phase (random categories)
     if len(state["history"]) < 5:
         state["phase"] = "assessment"
         category = random.choice(CATEGORIES)
         q = generate_question(category)
+
+    # After assessment = practice phase (target weak areas)
     else:
         state["phase"] = "practice"
+        # Prioritize weakest category, otherwise pick a random one
         category = state["weak_categories"][0] if state["weak_categories"] else random.choice(CATEGORIES)
-        
-        # Every 3rd question after assessment = scenario with image
-        use_scenario = (len(state["history"]) - 5) % 3 == 0
-        
-        if use_scenario:
-            import os
+
+        # Every 3rd question in practice is a scenario with an image
+        is_scenario_turn = True
+
+        if is_scenario_turn:
             image_dir = settings.IMAGES_PATH
             if os.path.isdir(image_dir):
                 images = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
                 if images:
+                    print(1)
                     image_file = random.choice(images)
                     image_path = os.path.join(image_dir, image_file)
                     q = generate_scenario_question(image_path, category)
+                    print(2)
                 else:
                     # Fallback to a standard question if no images are found
                     q = generate_question(category)
