@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Video, Eye, Pause, Play, RotateCcw, Download } from 'lucide-react';
+import { Camera, Video, Eye, Pause, Play, RotateCcw, Download, X } from 'lucide-react';
+import { CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import {analyzeVideos} from "../services/drivingTestAPI";
+import { Modal } from '@mui/material';
+import { Box, Typography, LinearProgress, Chip, Divider, IconButton } from '@mui/material';
+
+
 
 export default function ProfilePage() {
     const [isRecording, setIsRecording] = useState(true);
@@ -10,6 +15,9 @@ export default function ProfilePage() {
     const [cameraReady, setCameraReady] = useState(false);
     const [error, setError] = useState(null);
     const [mediapipeLoaded, setMediapipeLoaded] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [feedbackData, setResponse] = useState(null);
 
     const videoRef = useRef(null);
     const webcamRef = useRef(null);
@@ -23,6 +31,36 @@ export default function ProfilePage() {
         headRight: false,
         timestamp: 0
     });
+
+    function closeModal() {
+        setIsModalOpen(false)
+        setIsLoading(false);
+        setResponse(null);
+    }
+
+    const getGradeColor = (grade) => {
+        switch(grade?.toLowerCase()) {
+            case 'excellent': return '#4caf50';
+            case 'good': return '#2196f3';
+            case 'average': return '#ff9800';
+            case 'poor': return '#f44336';
+            default: return '#2196f3';
+        }
+    };
+
+    const modalStyle = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: { xs: '90%', sm: '80%', md: '700px' },
+        maxHeight: '90vh',
+        bgcolor: 'background.paper',
+        borderRadius: 2,
+        boxShadow: 24,
+        p: 4,
+        overflow: 'auto'
+    };
 
     const videos = [
         {
@@ -248,6 +286,8 @@ export default function ProfilePage() {
 
     const onEnd = () => {
         stopSimulation();
+        setIsLoading(true);
+        setIsModalOpen(true);
         analyzeVideos({
             videoUrl: currentVideo.videoFile,
             actions: actions,
@@ -255,8 +295,10 @@ export default function ProfilePage() {
             potentialHazards: currentVideo.potentialHazards,
         })
             .then(results => {
-                //TODO - fix this
-                console.log(results)
+                setIsLoading(false);
+                setResponse(results);
+                setIsModalOpen(true);
+                console.log('Analysis complete', results);
             })
     }
 
@@ -328,162 +370,318 @@ export default function ProfilePage() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
-            <div className="max-w-7xl mx-auto">
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold text-white mb-2">
-                        Driving Hazard Perception Simulator
-                    </h1>
-                    <p className="text-slate-400">Practice your observation skills for Irish driving conditions</p>
-                </div>
+        isModalOpen ? (
+            <Modal
+                open={isModalOpen}
+                aria-labelledby="modal-modal-title"
+                aria-describedby="modal-modal-description"
+            >
+                <Box sx={modalStyle}>
+                    <IconButton
+                        onClick={() => closeModal()}
+                        sx={{ position: 'absolute', right: 8, top: 8 }}
+                    >
+                        <X />
+                    </IconButton>
+                    {isLoading ? (
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <Typography variant="h5" component="h2" gutterBottom>
+                                Analyzing Your Performance
+                            </Typography>
+                            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                                Please wait while we process your driving assessment...
+                            </Typography>
+                            <LinearProgress />
+                        </Box>
+                    ) : feedbackData ? (
+                        <Box>
+                            {/* Header with Score */}
+                            <Box sx={{ textAlign: 'center', mb: 3 }}>
+                                <Typography variant="h4" component="h2" gutterBottom>
+                                    Performance Assessment
+                                </Typography>
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mt: 2 }}>
+                                    <Typography variant="h2" sx={{ color: getGradeColor(feedbackData.grade), fontWeight: 'bold' }}>
+                                        {feedbackData.score}
+                                    </Typography>
+                                    <Chip
+                                        label={feedbackData.grade}
+                                        sx={{
+                                            bgcolor: getGradeColor(feedbackData.grade),
+                                            color: 'white',
+                                            fontSize: '1.1rem',
+                                            px: 1
+                                        }}
+                                    />
+                                </Box>
+                            </Box>
 
-                {error && (
-                    <div className="bg-red-900/30 border border-red-600 text-red-200 px-4 py-3 rounded mb-6">
-                        {error}
+                            <Divider sx={{ mb: 3 }} />
+
+                            {/* Overall Feedback */}
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
+                                    Overall Feedback
+                                </Typography>
+                                <Typography variant="body1" color="text.secondary">
+                                    {feedbackData.feedback}
+                                </Typography>
+                            </Box>
+
+                            {/* Strengths */}
+                            {feedbackData.strengths?.length > 0 && (
+                                <Box sx={{ mb: 3 }}>
+                                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+                                        <CheckCircle className="icon" />
+                                        Strengths
+                                    </Typography>
+                                    <Box sx={{ pl: 2 }}>
+                                        {feedbackData.strengths.map((strength, index) => (
+                                            <Typography key={index} variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'flex-start' }}>
+                                                <span style={{ marginRight: '8px' }}>✓</span>
+                                                {strength}
+                                            </Typography>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
+
+                            {/* Areas for Improvement */}
+                            {feedbackData.improvements?.length > 0 && (
+                                <Box sx={{ mb: 3 }}>
+                                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+                                        <AlertTriangle className="icon" />
+                                        Areas for Improvement
+                                    </Typography>
+                                    <Box sx={{ pl: 2 }}>
+                                        {feedbackData.improvements.map((improvement, index) => (
+                                            <Typography key={index} variant="body2" sx={{ mb: 1, display: 'flex', alignItems: 'flex-start' }}>
+                                                <span style={{ marginRight: '8px' }}>•</span>
+                                                {improvement}
+                                            </Typography>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
+
+                            {/* Critical Misses */}
+                            {feedbackData.critical_misses?.length > 0 && feedbackData.critical_misses[0] !== "None" && (
+                                <Box sx={{ mb: 3 }}>
+                                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+                                        <AlertCircle className="icon" />
+                                        Critical Misses
+                                    </Typography>
+                                    <Box sx={{ pl: 2 }}>
+                                        {feedbackData.critical_misses.map((miss, index) => (
+                                            <Typography key={index} variant="body2" sx={{ mb: 1, color: '#f44336', display: 'flex', alignItems: 'flex-start' }}>
+                                                <span style={{ marginRight: '8px' }}>!</span>
+                                                {miss}
+                                            </Typography>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
+
+                            {/* Timing Analysis */}
+                            {feedbackData.timing_analysis && (
+                                <Box sx={{ mb: 3 }}>
+                                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
+                                        Timing Analysis
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {feedbackData.timing_analysis}
+                                    </Typography>
+                                </Box>
+                            )}
+
+                            {/* Detailed Breakdown */}
+                            {feedbackData.detailed_breakdown && (
+                                <Box>
+                                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
+                                        Detailed Breakdown
+                                    </Typography>
+                                    {Object.entries(feedbackData.detailed_breakdown).map(([key, value]) => (
+                                        <Box key={key} sx={{ mb: 2, pl: 2 }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', textTransform: 'capitalize' }}>
+                                                {key.replace(/_/g, ' ')}:
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {value}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                </Box>
+                            )}
+
+                            {/* Analysis ID */}
+                            {feedbackData.analysis_id && (
+                                <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #e0e0e0' }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Analysis ID: {feedbackData.analysis_id}
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Box>
+                    ) : null}
+                </Box>
+            </Modal>
+            ) : (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-8">
+                        <h1 className="text-4xl font-bold text-white mb-2">
+                            Driving Hazard Perception Simulator
+                        </h1>
+                        <p className="text-slate-400">Practice your observation skills for Irish driving conditions</p>
                     </div>
-                )}
 
-                {!currentVideo ? (
-                    <div className="grid md:grid-cols-2 gap-6">
-                        {videos.map(video => (
-                            <div key={video.id} className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition">
-                                <div className="aspect-video bg-slate-700 rounded mb-4 flex items-center justify-center">
-                                    <Video className="w-16 h-16 text-slate-500" />
-                                </div>
-                                <h3 className="text-xl font-semibold text-white mb-2">{video.description}</h3>
-                                <div className="mb-4">
-                                    <p className="text-sm text-slate-400 mb-2">Potential Hazards:</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {video.potentialHazards.map((hazard, idx) => (
-                                            <span key={idx} className="text-xs bg-amber-900/30 text-amber-300 px-2 py-1 rounded">
+                    {error && (
+                        <div className="bg-red-900/30 border border-red-600 text-red-200 px-4 py-3 rounded mb-6">
+                            {error}
+                        </div>
+                    )}
+
+                    {!currentVideo ? (
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {videos.map(video => (
+                                <div key={video.id} className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition">
+                                    <div className="aspect-video bg-slate-700 rounded mb-4 flex items-center justify-center">
+                                        <Video className="w-16 h-16 text-slate-500" />
+                                    </div>
+                                    <h3 className="text-xl font-semibold text-white mb-2">{video.description}</h3>
+                                    <div className="mb-4">
+                                        <p className="text-sm text-slate-400 mb-2">Potential Hazards:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {video.potentialHazards.map((hazard, idx) => (
+                                                <span key={idx} className="text-xs bg-amber-900/30 text-amber-300 px-2 py-1 rounded">
                         {hazard}
                       </span>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
+                                    <button
+                                        onClick={() => startSimulation(video)}
+                                        disabled={!mediapipeLoaded}
+                                        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition"
+                                    >
+                                        {mediapipeLoaded ? 'Start Simulation' : 'Loading MediaPipe...'}
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => startSimulation(video)}
-                                    disabled={!mediapipeLoaded}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition"
-                                >
-                                    {mediapipeLoaded ? 'Start Simulation' : 'Loading MediaPipe...'}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="space-y-6">
-                        {/* Combined video view with webcam overlay */}
-                        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                                <Video className="w-5 h-5" />
-                                Dashboard Camera
-                            </h3>
-                            <div className="relative w-full aspect-video bg-black rounded overflow-hidden">
-                                {/* Main driving video */}
-                                <video
-                                    ref={videoRef}
-                                    src={currentVideo.videoFile}
-                                    className="w-full h-full object-cover"
-                                    onEnded={onEnd}
-                                />
-
-                                {/* Webcam PIP overlay */}
-                                <div className="absolute top-4 right-4 w-48 h-36 rounded-lg border-2 border-slate-600 bg-slate-900 shadow-2xl overflow-hidden">
-                                    <video
-                                        ref={webcamRef}
-                                        autoPlay
-                                        playsInline
-                                        muted
-                                        className="w-full h-full object-cover"
-                                        style={{ transform: 'scaleX(-1)' }}
-                                    />
-                                </div>
-
-                                {/* Recording indicator */}
-                                {cameraReady && isRecording && (
-                                    <div className="absolute top-2 left-2 flex items-center gap-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full">
-                                        <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                        Recording
-                                    </div>
-                                )}
-
-                                {/* Camera label on PIP */}
-                                <div className="absolute top-2 right-2 bg-slate-900/80 text-slate-200 text-xs px-2 py-1 rounded flex items-center gap-1">
-                                    <Camera className="w-3 h-3" />
-                                    You
-                                </div>
-                            </div>
-
-                            {/* Controls */}
-                            <div className="flex gap-3 mt-4">
-                                <button
-                                    onClick={togglePause}
-                                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
-                                >
-                                    {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                                    {isPaused ? 'Resume' : 'Pause'}
-                                </button>
-                                <button
-                                    onClick={resetSimulation}
-                                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
-                                >
-                                    <RotateCcw className="w-4 h-4" />
-                                    Reset
-                                </button>
-                                <button
-                                    onClick={exportData}
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    Export Data
-                                </button>
-                            </div>
+                            ))}
                         </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {/* Combined video view with webcam overlay */}
+                            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                                    <Video className="w-5 h-5" />
+                                    Dashboard Camera
+                                </h3>
+                                <div className="relative w-full aspect-video bg-black rounded overflow-hidden">
+                                    {/* Main driving video */}
+                                    <video
+                                        ref={videoRef}
+                                        src={currentVideo.videoFile}
+                                        className="w-full h-full object-cover"
+                                        onEnded={onEnd}
+                                    />
 
-                        {/* Actions log */}
-                        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                            <h3 className="text-lg font-semibold text-white mb-3">Recorded Actions ({actions.length})</h3>
-                            <div className="max-h-48 overflow-y-auto space-y-2">
-                                {actions.length === 0 ? (
-                                    <p className="text-slate-400 text-sm">No actions recorded yet. Start checking mirrors and blind spots!</p>
-                                ) : (
-                                    actions.map((action, idx) => (
-                                        <div key={idx} className="bg-slate-700/50 px-3 py-2 rounded text-sm flex items-center justify-between">
-                                            <span className="text-white font-mono">{action.type}</span>
-                                            <span className="text-slate-400">
+                                    {/* Webcam PIP overlay */}
+                                    <div className="absolute top-4 right-4 w-48 h-36 rounded-lg border-2 border-slate-600 bg-slate-900 shadow-2xl overflow-hidden">
+                                        <video
+                                            ref={webcamRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-cover"
+                                            style={{ transform: 'scaleX(-1)' }}
+                                        />
+                                    </div>
+
+                                    {/* Recording indicator */}
+                                    {cameraReady && isRecording && (
+                                        <div className="absolute top-2 left-2 flex items-center gap-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full">
+                                            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                            Recording
+                                        </div>
+                                    )}
+
+                                    {/* Camera label on PIP */}
+                                    <div className="absolute top-2 right-2 bg-slate-900/80 text-slate-200 text-xs px-2 py-1 rounded flex items-center gap-1">
+                                        <Camera className="w-3 h-3" />
+                                        You
+                                    </div>
+                                </div>
+
+                                {/* Controls */}
+                                <div className="flex gap-3 mt-4">
+                                    <button
+                                        onClick={togglePause}
+                                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
+                                    >
+                                        {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                                        {isPaused ? 'Resume' : 'Pause'}
+                                    </button>
+                                    <button
+                                        onClick={resetSimulation}
+                                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
+                                    >
+                                        <RotateCcw className="w-4 h-4" />
+                                        Reset
+                                    </button>
+                                    <button
+                                        onClick={exportData}
+                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        Export Data
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Actions log */}
+                            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                                <h3 className="text-lg font-semibold text-white mb-3">Recorded Actions ({actions.length})</h3>
+                                <div className="max-h-48 overflow-y-auto space-y-2">
+                                    {actions.length === 0 ? (
+                                        <p className="text-slate-400 text-sm">No actions recorded yet. Start checking mirrors and blind spots!</p>
+                                    ) : (
+                                        actions.map((action, idx) => (
+                                            <div key={idx} className="bg-slate-700/50 px-3 py-2 rounded text-sm flex items-center justify-between">
+                                                <span className="text-white font-mono">{action.type}</span>
+                                                <span className="text-slate-400">
                                                 {action.timestamp.toFixed(2)}s (video: {action.videoTime.toFixed(2)}s)
                                             </span>
-                                        </div>
-                                    ))
-                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Expected hazards */}
+                            <div className="bg-amber-900/20 border border-amber-600/50 rounded-lg p-4">
+                                <h4 className="text-amber-300 font-semibold mb-2">Expected Observations:</h4>
+                                <ul className="text-amber-200 text-sm space-y-1">
+                                    {currentVideo.potentialHazards.map((hazard, idx) => (
+                                        <li key={idx}>• {hazard}</li>
+                                    ))}
+                                </ul>
                             </div>
                         </div>
+                    )}
 
-                        {/* Expected hazards */}
-                        <div className="bg-amber-900/20 border border-amber-600/50 rounded-lg p-4">
-                            <h4 className="text-amber-300 font-semibold mb-2">Expected Observations:</h4>
-                            <ul className="text-amber-200 text-sm space-y-1">
-                                {currentVideo.potentialHazards.map((hazard, idx) => (
-                                    <li key={idx}>• {hazard}</li>
-                                ))}
-                            </ul>
-                        </div>
+                    {/* Instructions */}
+                    <div className="mt-8 bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+                        <h3 className="text-white font-semibold mb-3">How it works:</h3>
+                        <ul className="text-slate-400 text-sm space-y-2">
+                            <li>• <strong className="text-white">EYE_LEFT/RIGHT:</strong> Move your eyes to check side mirrors</li>
+                            <li>• <strong className="text-white">HEAD_LEFT/RIGHT:</strong> Turn your head to check blind spots</li>
+                            <li>• Actions are recorded with precise timestamps relative to the video</li>
+                            <li>• Your camera feed appears in the top-right corner for face tracking</li>
+                            <li>• Export the data after completion for AI-powered analysis of your driving awareness</li>
+                        </ul>
                     </div>
-                )}
-
-                {/* Instructions */}
-                <div className="mt-8 bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-                    <h3 className="text-white font-semibold mb-3">How it works:</h3>
-                    <ul className="text-slate-400 text-sm space-y-2">
-                        <li>• <strong className="text-white">EYE_LEFT/RIGHT:</strong> Move your eyes to check side mirrors</li>
-                        <li>• <strong className="text-white">HEAD_LEFT/RIGHT:</strong> Turn your head to check blind spots</li>
-                        <li>• Actions are recorded with precise timestamps relative to the video</li>
-                        <li>• Your camera feed appears in the top-right corner for face tracking</li>
-                        <li>• Export the data after completion for AI-powered analysis of your driving awareness</li>
-                    </ul>
                 </div>
             </div>
-        </div>
-    );
+        ));
 }
