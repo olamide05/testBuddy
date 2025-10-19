@@ -1,13 +1,8 @@
 // src/api.ts
 import axios from "axios";
 
-const api = axios.create({
-  baseURL: "http://localhost:8000", // change if your backend runs elsewhere
-});
+const api = axios.create({ baseURL: "http://localhost:8000" });
 
-// ---------------------------
-// TypeScript interfaces
-// ---------------------------
 export interface Question {
   id: string;
   text: string;
@@ -27,37 +22,24 @@ export interface AnswerResponse {
   is_correct: boolean;
   correct_answer: string;
   explanation: string;
-  next_question?: Question;
+  next_question?: Question | null;
   complete?: boolean;
 }
 
-export interface ProgressResponse {
-  total_answered: number;
-  correct_answers: number;
-  overall_accuracy: number;
-  category_scores: Record<string, { correct: number; total: number }>;
-  weak_categories: string[];
-}
-
-// ---------------------------
-// API functions
-// ---------------------------
 export const startSession = async (userId: string): Promise<SessionResponse> => {
-  const response = await api.post("/api/session/start", { user_id: userId });
-  return response.data;
+  const res = await api.post(`/api/session/start`, { user_id: userId });
+  return res.data;
 };
 
-export const submitAnswer = async (
-  sessionId: string,
-  answer: string
-): Promise<AnswerResponse> => {
-  const response = await api.post(`/api/session/${sessionId}/answer`, { answer });
-  return response.data;
+export const submitAnswer = async (sessionId: string, answer: string): Promise<AnswerResponse> => {
+  const res = await api.post(`/api/session/${sessionId}/answer`, { answer });
+  return res.data;
 };
 
-export const getProgress = async (
-  sessionId: string
-): Promise<ProgressResponse> => {
-  const response = await api.get(`/api/session/${sessionId}/progress`);
-  return response.data;
+export const deleteSession = async (sessionId: string): Promise<void> => {
+  try {
+    await api.delete(`/api/session/${sessionId}`);
+  } catch {
+    // best-effort; ignore if already gone
+  }
 };
