@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { 
   Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, Dashboard as DashboardIcon, DirectionsCar, 
-  School, MonetizationOn, Assignment, AccountCircle, Login 
+  School, MonetizationOn, Assignment, AccountCircle, Login, SwapHoriz  // ← ADDED SwapHoriz
 } from '@mui/icons-material';
 
 // --- Page Imports (CRITICAL: Make sure these paths are correct) ---
@@ -16,10 +16,11 @@ import LoginPage from './pages/login';
 import ProfilePage from './pages/profile';
 import BookingPage from './pages/booking';
 import TheorySimulatorPage from './pages/simulator-theory';
+import SwapMarketPage from './pages/swap-market';
 
 // --- Configuration ---
 const openDrawerWidth = 260;
-const closedDrawerWidth = 72; // Width when collapsed
+const closedDrawerWidth = 72;
 const headerHeight = 64;
 
 // --- Menu Configuration with Components ---
@@ -27,6 +28,7 @@ const menuItems = [
   { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, component: <Dashboard /> },
   { key: 'booking', label: 'Find a Test', icon: <DirectionsCar />, component: <BookingPage /> },
   { key: 'theory', label: 'Theory & Simulator', icon: <School />, component: <TheorySimulatorPage /> },
+  { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage /> }, // ← ADDED THIS
   { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage /> },
   { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage /> },
 ];
@@ -131,7 +133,7 @@ export default function AppLayout() {
             }),
             overflowX: 'hidden',
           },
-          display: { xs: 'none', sm: 'block' } // Only show permanent drawer on desktop
+          display: { xs: 'none', sm: 'block' }
         }}
       >
         {drawerContent}
