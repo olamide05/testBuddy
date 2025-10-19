@@ -551,7 +551,7 @@ export default function TestSwapPage() {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        🔄 Test Swap Market
+        Test Swap Market
       </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom>
         Peer-to-peer test slot exchanges - Legal, guided, and safe
