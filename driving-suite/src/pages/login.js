@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Github, Twitter } from 'lucide-react';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { 
   createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword 
+  signInWithEmailAndPassword,
+  updateProfile
 } from "firebase/auth";
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 // --- Animation Variants ---
 const formVariants = {
@@ -34,28 +36,168 @@ const InputField = ({ icon: Icon, placeholder, type, value, onChange }) => (
 );
 
 // --- Main Login/Signup Component ---
-export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
+export default function LoginSignupPage({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const toggleMode = () => setIsLogin(!isLogin);
+
+  // Function to create initial user document in Firestore
+  const createUserDocument = async (user, displayName) => {
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      
+      // Check if document already exists
+      const existingDoc = await getDoc(userRef);
+      if (existingDoc.exists()) {
+        console.log('User document already exists');
+        return existingDoc.data();
+      }
+
+      // Split name into first and last name
+      const nameParts = displayName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const userData = {
+        // Personal Information
+        firstName: firstName,
+        lastName: lastName,
+        dateOfBirth: null,
+        age: null,
+        ppsn: '',
+        email: user.email,
+        phone: '',
+
+        // Address
+        address: {
+          street: '',
+          city: '',
+          county: '',
+          eircode: ''
+        },
+
+        // Driving Preferences
+        transmissionPreference: 'manual',
+        vehicleCategory: 'B',
+
+        // Theory Test
+        theoryTest: {
+          passed: false,
+          passDate: null,
+          certificateNumber: '',
+          expiryDate: null
+        },
+
+        // Learner Permit
+        learnerPermit: {
+          hasPermit: false,
+          permitNumber: '',
+          issueDate: null,
+          expiryDate: null,
+          category: 'B'
+        },
+
+        // EDT Progress
+        edtProgress: {
+          lessonsCompleted: 0,
+          lessonsRemaining: 12,
+          instructorName: '',
+          completionDate: null,
+        },
+
+        // Driving Test
+        drivingTest: {
+          eligible: false,
+          booked: false,
+          testDate: null,
+          testCentre: '',
+          attempts: 0,
+          passed: false
+        },
+
+        // Medical Information
+        medicalInfo: {
+          eyesightReport: false,
+          eyesightDate: null,
+          medicalReportRequired: false,
+          medicalReportDate: null,
+          notes: ''
+        },
+
+        // Preferences
+        preferences: {
+          preferredInstructor: '',
+          preferredLessonDays: [],
+          preferredTime: '',
+          testCentrePreference: []
+        },
+
+        // Account Info
+        account: {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isActive: true,
+          subscriptionType: 'free',
+          paymentStatus: 'unpaid'
+        },
+
+        // Emergency Contact
+        emergencyContact: {
+          name: '',
+          phone: '',
+          relationship: ''
+        },
+
+        notes: ''
+      };
+
+      // Create document with merge option to avoid overwriting
+      await setDoc(userRef, userData, { merge: true });
+      
+      // Verify document was created
+      const verifyDoc = await getDoc(userRef);
+      if (!verifyDoc.exists()) {
+        throw new Error('Failed to create user document');
+      }
+
+      console.log('✅ User document created successfully in Firestore');
+      return userData;
+    } catch (error) {
+      console.error('❌ Error creating user document:', error);
+      throw error;
+    }
+  };
 
   const handleAuthAction = async (e) => {
     e.preventDefault();
     setError('');
-    const action = isLogin 
-      ? signInWithEmailAndPassword(auth, email, password)
-      : createUserWithEmailAndPassword(auth, email, password);
+    setSuccess('');
+    setLoading(true);
 
     try {
-      const userCredential = await action;
-      console.log(isLogin ? "Logged in:" : "Registered:", userCredential.user);
-      
       if (isLogin) {
-        // LOGIN SUCCESS - Call parent's onLogin function
+        // LOGIN
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log("✅ Logged in:", userCredential.user.uid);
+        
+        // Verify user document exists
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          console.warn('⚠️ User document not found, creating one...');
+          await createUserDocument(
+            userCredential.user, 
+            userCredential.user.displayName || email.split('@')[0]
+          );
+        }
+
         if (onLogin) {
           onLogin({
             name: userCredential.user.displayName || name || email.split('@')[0],
@@ -64,19 +206,33 @@ export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
           });
         }
       } else {
-        // SIGNUP SUCCESS
-        alert("Registration successful! Please log in.");
-        setIsLogin(true); // Switch to login mode
-        setPassword(''); // Clear password for security
+        // SIGNUP
+        console.log('📝 Creating new user account...');
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("✅ User created in Auth:", userCredential.user.uid);
+
+        // Update display name in Firebase Auth
+        await updateProfile(userCredential.user, {
+          displayName: name || email.split('@')[0]
+        });
+        console.log('✅ Display name updated');
+
+        // Create user document in Firestore with all fields
+        await createUserDocument(userCredential.user, name || email.split('@')[0]);
+
+        setSuccess('✅ Registration successful! Redirecting to login...');
         
-        // Optionally save additional user data to Firestore here
-        // await setDoc(doc(db, "users", userCredential.user.uid), {
-        //   name: name,
-        //   email: email,
-        //   createdAt: new Date()
-        // });
+        // Show success message and switch to login
+        setTimeout(() => {
+          setIsLogin(true);
+          setPassword('');
+          setName('');
+          setSuccess('');
+        }, 2000);
       }
     } catch (err) {
+      console.error('❌ Auth error:', err);
+      
       // Better error messages
       const errorMessages = {
         'auth/user-not-found': 'No account found with this email.',
@@ -84,9 +240,13 @@ export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
         'auth/email-already-in-use': 'An account with this email already exists.',
         'auth/weak-password': 'Password should be at least 6 characters.',
         'auth/invalid-email': 'Invalid email address.',
-        'auth/too-many-requests': 'Too many attempts. Please try again later.'
+        'auth/too-many-requests': 'Too many attempts. Please try again later.',
+        'auth/network-request-failed': 'Network error. Please check your connection.',
+        'permission-denied': 'Permission denied. Please check Firestore security rules.',
       };
       setError(errorMessages[err.code] || err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -152,12 +312,30 @@ export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
                     {error}
                   </motion.p>
                 )}
+
+                {success && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ 
+                      color: '#16a34a', 
+                      marginBottom: '15px', 
+                      backgroundColor: '#dcfce7', 
+                      padding: '10px', 
+                      borderRadius: '8px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    {success}
+                  </motion.p>
+                )}
                 
                 <div style={{ marginTop: '32px' }}>
                   <motion.button
                     type="submit"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    disabled={loading}
+                    whileHover={{ scale: loading ? 1 : 1.05 }}
+                    whileTap={{ scale: loading ? 1 : 0.95 }}
                     style={{
                       backgroundColor: isLogin ? '#2563eb' : '#16a34a',
                       color: 'white',
@@ -170,11 +348,13 @@ export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
                       display: 'flex',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      cursor: 'pointer',
+                      cursor: loading ? 'not-allowed' : 'pointer',
                       gap: '10px',
+                      opacity: loading ? 0.7 : 1
                     }}
                   >
-                    {isLogin ? 'Sign In' : 'Sign Up'} <ArrowRight size={20} />
+                    {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')} 
+                    {!loading && <ArrowRight size={20} />}
                   </motion.button>
                 </div>
               </form>
@@ -239,8 +419,9 @@ export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
         </p>
         <motion.button
           onClick={toggleMode}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          disabled={loading}
+          whileHover={{ scale: loading ? 1 : 1.1 }}
+          whileTap={{ scale: loading ? 1 : 0.9 }}
           style={{
             backgroundColor: 'white',
             color: isLogin ? '#2563eb' : '#16a34a',
@@ -249,7 +430,8 @@ export default function LoginSignupPage({ onLogin }) {  // ← ADD onLogin prop
             fontWeight: 'bold',
             fontSize: '1rem',
             border: 'none',
-            cursor: 'pointer'
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.7 : 1
           }}
         >
           {isLogin ? 'Sign Up' : 'Sign In'}

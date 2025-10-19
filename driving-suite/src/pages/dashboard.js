@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -17,7 +18,8 @@ import {
   CardContent,
   CardHeader,
   IconButton,
-  Link
+  Link,
+  Button
 } from '@mui/material';
 import {
   BarChart,
@@ -45,12 +47,12 @@ import {
   Person,
   Speed,
   Event,
-  School  // Add this import
-
+  School,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebase'; // Your Firebase config
+import { db } from '../firebase';
 
 // --- Stat Card Component ---
 const StatCard = ({ title, value, icon, color, subtitle }) => (
@@ -75,17 +77,21 @@ export default function MainPage() {
   const [drivingNews, setDrivingNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [lessonsLoading, setLessonsLoading] = useState(true);
 
   const auth = getAuth();
+  const navigate = useNavigate();
 
   // Fetch user data and related information
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        console.log('✅ User authenticated:', currentUser.uid);
         setUser(currentUser);
         await fetchUserData(currentUser.uid);
         await fetchUpcomingLessons(currentUser.uid);
       } else {
+        console.log('❌ No user authenticated');
         setError('Please log in to view dashboard');
         setLoading(false);
       }
@@ -97,52 +103,80 @@ export default function MainPage() {
   // Fetch user profile data
   const fetchUserData = async (uid) => {
     try {
+      console.log('📥 Fetching user data for UID:', uid);
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
+        console.log('✅ User data loaded:', data);
         setUserData(data);
         
         // Fetch area statistics based on user's county
         if (data.address?.county) {
           await fetchAreaStats(data.address.county);
         }
+      } else {
+        console.log('⚠️ No user document found');
+        setError('User profile not found. Please complete your profile.');
       }
     } catch (err) {
-      console.error('Error fetching user data:', err);
+      console.error('❌ Error fetching user data:', err);
       setError('Failed to load user data');
     }
   };
 
-  // Fetch upcoming lessons (you'll need to create a lessons collection)
+  // Fetch upcoming lessons with simplified query
   const fetchUpcomingLessons = async (uid) => {
+    setLessonsLoading(true);
     try {
+      console.log('📅 Fetching lessons for user:', uid);
+      
+      // Simplified query - only filter by userId
       const lessonsRef = collection(db, 'lessons');
       const q = query(
         lessonsRef,
         where('userId', '==', uid),
-        where('status', '==', 'scheduled'),
-        orderBy('dateTime', 'asc'),
-        limit(5)
+        limit(10)
       );
       
       const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        console.log('ℹ️ No lessons found for user');
+        setUpcomingLessons([]);
+        setLessonsLoading(false);
+        return;
+      }
+
       const lessons = [];
       querySnapshot.forEach((doc) => {
         lessons.push({ id: doc.id, ...doc.data() });
       });
       
-      setUpcomingLessons(lessons);
+      // Filter and sort in JavaScript instead of Firestore
+      const upcomingLessonsList = lessons
+        .filter(lesson => lesson.status === 'scheduled' || lesson.status === 'upcoming')
+        .sort((a, b) => {
+          const dateA = a.dateTime?.toDate ? a.dateTime.toDate() : new Date(a.dateTime);
+          const dateB = b.dateTime?.toDate ? b.dateTime.toDate() : new Date(b.dateTime);
+          return dateA - dateB;
+        })
+        .slice(0, 5);
+      
+      console.log('✅ Loaded', upcomingLessonsList.length, 'upcoming lessons');
+      setUpcomingLessons(upcomingLessonsList);
     } catch (err) {
-      console.error('Error fetching lessons:', err);
-      // If lessons collection doesn't exist yet, set empty array
+      console.error('❌ Error fetching lessons:', err);
       setUpcomingLessons([]);
+    } finally {
+      setLessonsLoading(false);
     }
   };
 
-  // Fetch area statistics (you can aggregate this from your users collection)
+  // Fetch area statistics
   const fetchAreaStats = async (county) => {
     try {
-      // Get all users in the same county
+      console.log('📊 Fetching area stats for:', county);
+      
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('address.county', '==', county));
       const querySnapshot = await getDocs(q);
@@ -160,16 +194,18 @@ export default function MainPage() {
         if (data.edtProgress?.lessonsCompleted >= 12) completedEDT++;
       });
       
+      console.log('✅ Area stats loaded:', { totalUsers, passedTests, pendingTests, completedEDT });
+      
       setAreaStats({
         county,
         totalLearners: totalUsers,
         passRate: totalUsers > 0 ? Math.round((passedTests / totalUsers) * 100) : 0,
         pendingTests,
-        averageWaitTime: '6-8 weeks', // You can calculate this from test dates
+        averageWaitTime: '6-8 weeks',
         completedEDT
       });
     } catch (err) {
-      console.error('Error fetching area stats:', err);
+      console.error('❌ Error fetching area stats:', err);
     } finally {
       setLoading(false);
     }
@@ -178,7 +214,6 @@ export default function MainPage() {
   // Fetch Irish driving news
   useEffect(() => {
     const fetchDrivingNews = async () => {
-      // Mock news data (you can integrate with RSA RSS feed or news API)
       const mockNews = [
         {
           id: 1,
@@ -234,7 +269,7 @@ export default function MainPage() {
     ];
   };
 
-  // Monthly performance data (you can fetch this from your database)
+  // Monthly performance data
   const monthlyTestData = [
     { name: 'Jan', 'Tests': 40, 'Pass Rate %': 65 },
     { name: 'Feb', 'Tests': 30, 'Pass Rate %': 70 },
@@ -324,7 +359,11 @@ export default function MainPage() {
             </Box>
             <Divider sx={{ mb: 2 }} />
             
-            {upcomingLessons.length > 0 ? (
+            {lessonsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            ) : upcomingLessons.length > 0 ? (
               <List sx={{ maxHeight: 300, overflow: 'auto' }}>
                 {upcomingLessons.map((lesson, index) => (
                   <React.Fragment key={lesson.id}>
@@ -339,9 +378,11 @@ export default function MainPage() {
                         secondary={
                           <>
                             <Typography component="span" variant="body2" color="text.primary">
-                              {lesson.instructor || userData?.edtProgress?.instructorName}
+                              {lesson.instructor || userData?.edtProgress?.instructorName || 'Instructor'}
                             </Typography>
-                            {` — ${new Date(lesson.dateTime?.toDate()).toLocaleDateString('en-IE', {
+                            {lesson.dateTime && ` — ${new Date(
+                              lesson.dateTime?.toDate ? lesson.dateTime.toDate() : lesson.dateTime
+                            ).toLocaleDateString('en-IE', {
                               weekday: 'short',
                               month: 'short',
                               day: 'numeric',
@@ -359,12 +400,20 @@ export default function MainPage() {
             ) : (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <CalendarToday sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
                   No upcoming lessons scheduled
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
                   Contact your instructor to book lessons
                 </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  sx={{ borderRadius: 2 }}
+                  onClick={() => navigate('/instructors')}
+                >
+                  Book a Lesson
+                </Button>
               </Box>
             )}
           </Paper>
@@ -376,7 +425,7 @@ export default function MainPage() {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <LocationOn sx={{ mr: 1, color: 'primary.main' }} />
               <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                Your Area: {areaStats?.county || userData?.address?.county}
+                Your Area: {areaStats?.county || userData?.address?.county || 'Not Set'}
               </Typography>
             </Box>
             <Divider sx={{ mb: 2 }} />
@@ -441,9 +490,12 @@ export default function MainPage() {
                 </Alert>
               </Box>
             ) : (
-              <Typography variant="body2" color="text.secondary">
-                Loading area statistics...
-              </Typography>
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CircularProgress size={40} />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  Loading area statistics...
+                </Typography>
+              </Box>
             )}
           </Paper>
         </Grid>
@@ -515,25 +567,31 @@ export default function MainPage() {
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
               Area Overview
             </Typography>
-            <ResponsiveContainer width="100%" height="90%">
-              <PieChart>
-                <Pie
-                  data={generateAreaChartData()}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {generateAreaChartData().map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {areaStats && generateAreaChartData().length > 0 ? (
+              <ResponsiveContainer width="100%" height="90%">
+                <PieChart>
+                  <Pie
+                    data={generateAreaChartData()}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {generateAreaChartData().map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80%' }}>
+                <CircularProgress />
+              </Box>
+            )}
           </Paper>
         </Grid>
       </Grid>
