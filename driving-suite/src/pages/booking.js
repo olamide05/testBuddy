@@ -9,6 +9,7 @@ import {
   LocationOn, Phone, Schedule, TrendingUp, DirectionsCar, Star,
   Navigation, CheckCircle, Warning, Info, Search, MyLocation
 } from '@mui/icons-material';
+import './booking.css';
 
 const CENTRES_DATA = [
   {
@@ -355,7 +356,7 @@ export default function TestCentresPage() {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        🗺️ Find Test Centres
+        Find Test Centres
       </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom>
         Compare centres, check wait times, and find the best option for you
