@@ -159,12 +159,17 @@ def get_next_question(state: dict) -> dict:
         
         if use_scenario:
             import os
-            # Get first image from directory
+            # Get random image from directory
             image_dir = settings.IMAGES_PATH
-            images = [f for f in os.listdir(image_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
-            if images:
-                image_path = f"{image_dir}/{images[0]}"
-                q = generate_scenario_question(image_path, category)
+            if os.path.exists(image_dir):
+                images = [f for f in os.listdir(image_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
+                if images:
+                    # Pick random image instead of always first one
+                    image_file = random.choice(images)
+                    image_path = f"{image_dir}/{image_file}"
+                    q = generate_scenario_question(image_path, category)
+                else:
+                    q = generate_question(category)
             else:
                 q = generate_question(category)
         else:
