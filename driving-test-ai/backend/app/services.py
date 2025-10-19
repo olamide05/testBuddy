@@ -13,8 +13,7 @@ CATEGORIES = ["road_signs", "right_of_way", "speed_limits", "parking", "roundabo
 def get_gemini_client():
     return genai.Client(
         vertexai=True,
-        project=settings.GCP_PROJECT_ID,
-        location=settings.GCP_LOCATION
+        api_key=settings.GCP_API_KEY,
     )
 
 # Generate a theory question
