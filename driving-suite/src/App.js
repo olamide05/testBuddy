@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { 
   AppBar, Toolbar, Typography, Box, CssBaseline, Drawer, List, ListItemButton, 
   ListItemIcon, ListItemText, IconButton, Avatar, Tooltip, Divider, Button 
@@ -8,6 +9,8 @@ import {
   DirectionsCar, School, MonetizationOn, Assignment, AccountCircle, 
   Login as LoginIcon, Logout as LogoutIcon, SwapHoriz  
 } from '@mui/icons-material';
+import { auth } from './firebase'; // Make sure this path is correct
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // --- Page Imports ---
 import Dashboard from './pages/dashboard';
@@ -20,68 +23,110 @@ import TheorySimulatorPage from './pages/simulator-theory';
 import SwapMarketPage from './pages/swap-market';
 import LandingPage from './pages/landing';
 import LiveVideo from './pages/live-video';
+import BecomeInstructorPage from './pages/become-instructor';
+import ProtectedRoute from './protected-route';
 
 // --- Configuration ---
 const openDrawerWidth = 260;
 const closedDrawerWidth = 72;
 const headerHeight = 64;
 
-// --- Main App Layout Component ---
-export default function AppLayout() {
+// --- Layout Component (with navigation) ---
+function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentPageKey, setCurrentPageKey] = useState('landing');
   const [user, setUser] = useState({ loggedIn: false, name: '' });
+  const [loading, setLoading] = useState(true); // Add loading state
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ PERSIST AUTH STATE - Listen to Firebase auth changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in - restore from localStorage or Firebase
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          // Set from Firebase user
+          const userData = {
+            loggedIn: true,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            email: firebaseUser.email,
+            uid: firebaseUser.uid
+          };
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+      } else {
+        // User is signed out
+        setUser({ loggedIn: false, name: '' });
+        localStorage.removeItem('user');
+      }
+      setLoading(false);
+    });
+
+    // Cleanup subscription
+    return () => unsubscribe();
+  }, []);
 
   const handleSidebarToggle = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
   const handleLogin = (userData) => {
-    // userData can include name, email, etc. from login form
-    setUser({ loggedIn: true, name: userData?.name || 'User' });
-    setCurrentPageKey('dashboard');
+    const user = {
+      loggedIn: true,
+      name: userData?.name || 'User',
+      email: userData?.email,
+      uid: userData?.uid
+    };
+    setUser(user);
+    localStorage.setItem('user', JSON.stringify(user)); // Persist to localStorage
+    navigate('/dashboard');
   };
 
-  const handleLogout = () => {
-    setUser({ loggedIn: false, name: '' });
-    setCurrentPageKey('landing');
-  };
-
-  // Handle navigation with authentication check
-  const handleNavigation = (pageKey, requiresAuth) => {
-    if (requiresAuth && !user.loggedIn) {
-      setCurrentPageKey('login');
-    } else {
-      setCurrentPageKey(pageKey);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth); // Sign out from Firebase
+      setUser({ loggedIn: false, name: '' });
+      localStorage.removeItem('user'); // Clear localStorage
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
-  // --- Menu Configuration (defined inside component to access handleLogin) ---
+  // Handle navigation with authentication check
+  const handleNavigation = (path, requiresAuth) => {
+    if (requiresAuth && !user.loggedIn) {
+      navigate('/login');
+    } else {
+      navigate(path);
+    }
+  };
+
+  // --- Menu Configuration ---
   const menuItems = [
-    { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, component: <Dashboard />, requiresAuth: true },
-    { key: 'booking', label: 'Find a Test', icon: <DirectionsCar />, component: <BookingPage />, requiresAuth: true },
-    { key: 'theory', label: 'Theory & Simulator', icon: <School />, component: <TheorySimulatorPage />, requiresAuth: true },
-    { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage />, requiresAuth: true },
-    { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage />, requiresAuth: true },
-    { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage />, requiresAuth: true },
-    { key: 'live-video', label: 'Live Video', icon: <Assignment />, component: <LiveVideo />, requiresAuth: true },
-    { key: 'profile', label: 'My Profile', icon: <AccountCircle />, component: <ProfilePage user={user} />, requiresAuth: true },
+    { path: '/dashboard', label: 'Dashboard', icon: <DashboardIcon />, requiresAuth: true },
+    { path: '/booking', label: 'Find a Test', icon: <DirectionsCar />, requiresAuth: true },
+    { path: '/theory', label: 'Theory & Simulator', icon: <School />, requiresAuth: true },
+    { path: '/swap', label: 'Test Swap Market', icon: <SwapHoriz />, requiresAuth: true },
+    { path: '/insurance', label: 'Insurance Deals', icon: <MonetizationOn />, requiresAuth: true },
+    { path: '/instructors', label: 'Instructors', icon: <Assignment />, requiresAuth: true },
+    { path: '/live-video', label: 'Live Video', icon: <Assignment />, requiresAuth: true },
+    { path: '/profile', label: 'My Profile', icon: <AccountCircle />, requiresAuth: true },
   ];
 
-  const publicPages = [
-    { key: 'landing', label: 'Home', component: <LandingPage onGetStarted={() => setCurrentPageKey('login')} />, requiresAuth: false },
-    { key: 'login', label: 'Login', component: <LoginPage onLogin={handleLogin} />, requiresAuth: false },
-  ];
-
-  // Get current page from all available pages
-  const allPages = [...menuItems, ...publicPages];
-  const currentPage = allPages.find(p => p.key === currentPageKey) || publicPages[0];
+  // Get current page label
+  const currentPage = menuItems.find(item => item.path === location.pathname);
+  const pageTitle = currentPage?.label || (location.pathname === '/' ? 'Home' : 'DriveNow');
 
   const drawerContent = (
     <div>
       <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: [2], height: `${headerHeight}px` }}>
         {isSidebarOpen && (
-          <Typography variant="h5" noWrap sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h5" noWrap sx={{ fontWeight: 'bold', cursor: 'pointer' }} onClick={() => navigate('/')}>
             DriveNow
           </Typography>
         )}
@@ -91,12 +136,12 @@ export default function AppLayout() {
       </Toolbar>
       <Divider />
       <List>
-        {menuItems.map(({ key, label, icon, requiresAuth }) => (
-          <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={key}>
+        {menuItems.map(({ path, label, icon, requiresAuth }) => (
+          <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={path}>
             <ListItemButton 
               sx={{ py: 1.5 }} 
-              onClick={() => handleNavigation(key, requiresAuth)} 
-              selected={currentPageKey === key}
+              onClick={() => handleNavigation(path, requiresAuth)} 
+              selected={location.pathname === path}
             >
               <ListItemIcon>{icon}</ListItemIcon>
               {isSidebarOpen && <ListItemText primary={label} />}
@@ -108,6 +153,15 @@ export default function AppLayout() {
   );
 
   const currentWidth = isSidebarOpen ? openDrawerWidth : closedDrawerWidth;
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Typography>Loading...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -127,7 +181,7 @@ export default function AppLayout() {
       >
         <Toolbar sx={{ justifyContent: 'space-between', height: `${headerHeight}px` }}>
           <Typography variant="h6" noWrap>
-            {currentPage?.label || 'DriveNow'}
+            {pageTitle}
           </Typography>
           
           {/* RIGHT SIDE: Login/Logout + User Info */}
@@ -158,7 +212,7 @@ export default function AppLayout() {
               <>
                 <Button 
                   color="inherit" 
-                  onClick={() => setCurrentPageKey('login')}
+                  onClick={() => navigate('/login')}
                   startIcon={<LoginIcon />}
                   sx={{ display: { xs: 'none', sm: 'flex' } }}
                 >
@@ -166,7 +220,7 @@ export default function AppLayout() {
                 </Button>
                 <IconButton 
                   color="inherit" 
-                  onClick={() => setCurrentPageKey('login')} 
+                  onClick={() => navigate('/login')} 
                   sx={{ display: { xs: 'flex', sm: 'none' } }}
                 >
                   <LoginIcon />
@@ -177,7 +231,7 @@ export default function AppLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar / Drawer - ALWAYS VISIBLE */}
+      {/* Sidebar / Drawer */}
       <Drawer
         variant="permanent"
         open={isSidebarOpen}
@@ -210,8 +264,67 @@ export default function AppLayout() {
           mt: `${headerHeight}px`,
         }}
       >
-        {currentPage?.component}
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage onGetStarted={() => navigate('/login')} />} />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+          <Route path="/become-instructor" element={<BecomeInstructorPage />} />
+
+          {/* Protected Routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute user={user}>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/booking" element={
+            <ProtectedRoute user={user}>
+              <BookingPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/theory" element={
+            <ProtectedRoute user={user}>
+              <TheorySimulatorPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/swap" element={
+            <ProtectedRoute user={user}>
+              <SwapMarketPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/insurance" element={
+            <ProtectedRoute user={user}>
+              <InsurancePage />
+            </ProtectedRoute>
+          } />
+          <Route path="/instructors" element={
+            <ProtectedRoute user={user}>
+              <AdvertisementPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/live-video" element={
+            <ProtectedRoute user={user}>
+              <LiveVideo />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute user={user}>
+              <ProfilePage user={user} />
+            </ProtectedRoute>
+          } />
+
+          {/* 404 Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Box>
     </Box>
+  );
+}
+
+// --- Main App Component ---
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppLayout />
+    </BrowserRouter>
   );
 }
