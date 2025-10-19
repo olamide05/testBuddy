@@ -3,10 +3,13 @@ import {
   Box, Card, CardContent, Typography, Button, Radio, RadioGroup, 
   FormControlLabel, LinearProgress, Chip, Grid, Paper, Alert
 } from '@mui/material';
-import { startSession, submitAnswer, getProgress } from '../services/drivingTestAPI';
+
+// ⬅️ add endSession (DELETE/POST) to the import
+import { startSession, submitAnswer, getProgress, endSession } from '../services/drivingTestAPI';
 
 export default function TheorySimulatorPage() {
   const [sessionId, setSessionId] = useState(null);
+  const [sessionKey, setSessionKey] = useState(0);  // ⬅️ forces a full remount per run
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [feedback, setFeedback] = useState(null);
@@ -14,19 +17,62 @@ export default function TheorySimulatorPage() {
   const [progress, setProgress] = useState(null);
   const [showProgress, setShowProgress] = useState(false);
 
+  const hardResetUI = () => {
+    setSessionId(null);
+    setCurrentQuestion(null);
+    setSelectedAnswer('');
+    setFeedback(null);
+    setLoading(false);
+    setProgress(null);
+    setShowProgress(false);
+    setSessionKey(k => k + 1);      // ← guarantees no old red/green sticks around
+  };
+
   const handleStart = async () => {
     setLoading(true);
     try {
+      // ephemeral user id so sessions never “resume”
       const userId = 'user_' + Date.now();
       const response = await startSession(userId);
       setSessionId(response.session_id);
       setCurrentQuestion(response.question);
+      setSelectedAnswer('');
+      setFeedback(null);
+      setShowProgress(false);
+      setProgress(null);
+      setSessionKey(k => k + 1);    // ← fresh mount for the new run
     } catch (error) {
       console.error('Error starting session:', error);
       alert('Failed to start session. Make sure backend is running on port 8000');
+      hardResetUI();
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEndTest = async () => {
+    try {
+      if (sessionId) {
+        // tell backend to drop this session (best-effort)
+        await endSession(sessionId);
+      }
+    } catch (e) {
+      console.warn('endSession failed (ok to ignore):', e);
+    } finally {
+      // clean slate UI
+      hardResetUI();
+    }
+  };
+
+  const handleNewSession = async () => {
+    try {
+      if (sessionId) {
+        await endSession(sessionId);  // end old one first (best-effort)
+      }
+    } catch {}
+    // wipe UI + immediately start a fresh session
+    hardResetUI();
+    await handleStart();
   };
 
   const handleSubmit = async () => {
@@ -79,15 +125,17 @@ export default function TheorySimulatorPage() {
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
               AI-powered personalized practice for your theory test
             </Typography>
-            <Button 
-              variant="contained" 
-              size="large" 
-              onClick={handleStart}
-              disabled={loading}
-              sx={{ px: 6, py: 2 }}
-            >
-              {loading ? 'Starting...' : 'Start Practice'}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+              <Button 
+                variant="contained" 
+                size="large" 
+                onClick={handleStart}
+                disabled={loading}
+                sx={{ px: 6, py: 2 }}
+              >
+                {loading ? 'Starting...' : 'Start Practice'}
+              </Button>
+            </Box>
             <Box sx={{ mt: 4 }}>
               <Typography variant="body2" color="text.secondary">
                 ✓ AI-generated questions
@@ -143,7 +191,7 @@ export default function TheorySimulatorPage() {
               <Paper key={category} elevation={1} sx={{ p: 2, mb: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography sx={{ textTransform: 'capitalize' }}>
-                    {category.replace('_', ' ')}
+                    {String(category).replace('_', ' ')}
                   </Typography>
                   <Typography color="primary" fontWeight="bold">
                     {score.correct}/{score.total} ({((score.correct/score.total)*100).toFixed(0)}%)
@@ -175,20 +223,24 @@ export default function TheorySimulatorPage() {
               </Alert>
             )}
 
-            <Button 
-              variant="contained" 
-              fullWidth 
-              size="large"
-              onClick={() => {
-                setShowProgress(false);
-                setSessionId(null);
-                setCurrentQuestion(null);
-                setProgress(null);
-              }}
-              sx={{ mt: 4 }}
-            >
-              Start New Session
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1, mt: 4 }}>
+              <Button 
+                variant="contained" 
+                fullWidth 
+                size="large"
+                onClick={handleNewSession}
+              >
+                Start New Session
+              </Button>
+              <Button 
+                variant="outlined" 
+                fullWidth 
+                size="large"
+                onClick={handleEndTest}
+              >
+                End Test
+              </Button>
+            </Box>
           </CardContent>
         </Card>
       </Box>
@@ -199,12 +251,17 @@ export default function TheorySimulatorPage() {
   if (!currentQuestion) return <Typography>Loading...</Typography>;
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', mt: 4 }}>
+    <Box key={sessionKey} sx={{ maxWidth: 900, mx: 'auto', mt: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h5">Irish Driving Test Practice</Typography>
-        <Button variant="outlined" onClick={handleViewProgress}>
-          View Progress
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" onClick={handleViewProgress}>
+            View Progress
+          </Button>
+          <Button variant="contained" color="error" onClick={handleEndTest}>
+            End Test
+          </Button>
+        </Box>
       </Box>
 
       <Card elevation={3}>

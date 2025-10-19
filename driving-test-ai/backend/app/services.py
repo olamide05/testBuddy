@@ -142,7 +142,10 @@ def get_next_question(state: dict) -> dict:
     # First 5 questions = assessment phase (random categories)
     if len(state["history"]) < 5:
         state["phase"] = "assessment"
-        category = random.choice(CATEGORIES)
+        # Avoid repeating categories if possible
+        used_categories = [q["category"] for q in state["history"]]
+        available = [c for c in CATEGORIES if c not in used_categories[-2:]]  # Avoid last 2
+        category = random.choice(available if available else CATEGORIES)
         q = generate_question(category)
 
     # After assessment = practice phase (target weak areas)
@@ -248,12 +251,12 @@ Return ONLY this JSON (no markdown):
     }}
 }}
 
-Examples of ‘Observation’ faults include:
+Examples of 'Observation' faults include:
 ➢ Not looking around when moving off (Cat. A, A2, A1, A M, B, BE, and W)
 ➢ Where an applicant is on a wide road and is required to make a significant change
 9
-in position to the right or left a fault may be recorded for “observation
-Changing Lane” or Mirrors Changing Lane as appropriate.
+in position to the right or left a fault may be recorded for "observation
+Changing Lane" or Mirrors Changing Lane as appropriate.
 ➢ Not taking adequate observations before and while overtaking.
 ➢ Not taking adequate observations before and while changing lanes to the left or
 right, or where lanes merge into one another.
@@ -261,12 +264,12 @@ right, or where lanes merge into one another.
 ➢ Not taking adequate observations before, on, and exiting roundabouts.
 ➢ Not taking adequate observations before and while turning left/right.
 ➢ Where an applicant turns right, (or is beckoned to turn right and the view is
-restricted) in front of an oncoming vehicle, a check should be made of the ‘inside’
+restricted) in front of an oncoming vehicle, a check should be made of the 'inside'
 of the oncoming vehicle before completing the turn.
 ➢ Where an applicant turns right in front of an oncoming vehicle without checking the
 road directly ahead and does not see the vehicle. E.g. when forward vision is
 obscured.
-➢ Where an applicant makes a severe ‘swan-neck’ while turning right or is very wide
+➢ Where an applicant makes a severe 'swan-neck' while turning right or is very wide
 when turning left and does not take observations to the side before completing the
 turn. Two faults may be recorded in this case.
 ➢ Not taking adequate observations when being the first vehicle to move off from
@@ -274,17 +277,17 @@ traffic lights at a blind junction.
 ➢ Not taking adequate observations to the left when turning right, and in possession
 of a junction.
 ➢ Not taking adequate observations when driving out from a parking space or a fault
-may be recorded for “Observations Moving Off”.
-Observation faults changing lane on a roundabout are recorded opposite ‘Observations at
-Roundabouts’
+may be recorded for "Observations Moving Off".
+Observation faults changing lane on a roundabout are recorded opposite 'Observations at
+Roundabouts'
 In some situations, such as overtaking, changing lanes, or moving off in HGV or PCV
 vehicles observations may be taken by use of the mirrors, and this is acceptable where it is
 done competently and effectively.
 In a case where an applicant does see another road user but deliberately impedes or
-restricts passage, a fault should be recorded for ‘Right of Way’ as appropriate and not for
-‘Observation’ in this case.
+restricts passage, a fault should be recorded for 'Right of Way' as appropriate and not for
+'Observation' in this case.
 Where visibility is severely restricted due to condensation, a fault may be recorded for
-“Secondary Controls” and not Observations in this case.
+"Secondary Controls" and not Observations in this case.
 React Promptly and Properly to Hazards
 React
 By identifying hazards, applicants will have time to take any necessary action. They should
@@ -293,17 +296,17 @@ their speed or altering their course. There will be times when applicants will h
 with more than one hazard within a short space of time. This may require using both initiative
 and common sense to deal with a particular set of circumstances.
 An applicant should show awareness by reading the road and traffic situation ahead and
-reacting in an appropriate manner, or a fault may be recorded for “Reaction”.
+reacting in an appropriate manner, or a fault may be recorded for "Reaction".
 10
-Examples of ‘React’ faults include:
+Examples of 'React' faults include:
 ➢ Where an applicant is driving towards parked vehicles on the left and does not
 move out in good time to pass them.
-➢ Where an applicant’s vision is diverted down to the controls for an extended
+➢ Where an applicant's vision is diverted down to the controls for an extended
 period.
 ➢ Where an applicant brakes hard on an amber light when the vehicle should clearly
 have carried on.
 ➢ Where an applicant drives into, or causes, or contributes unnecessarily to a
-‘bottleneck’.
+'bottleneck'.
 ➢ Where an applicant intends to turn from a major road into a minor or narrow road
 and obliges a vehicle which intends to emerge from that road to reverse out of the
 way.
@@ -369,4 +372,3 @@ Score range: 0-100 (The range should be strictly based on live scenario)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to analyze video: {str(e)}")
-

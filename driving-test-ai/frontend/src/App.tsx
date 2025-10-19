@@ -1,27 +1,83 @@
-import { useState } from 'react';
-import { startSession, submitAnswer, getProgress } from './api';
+import { useMemo, useState } from 'react';
+import { startSession, submitAnswer, deleteSession } from './api';
 import type { Question, AnswerResponse } from './api';
 import './App.css';
 
+function getEphemeralUserId(): string {
+  // ephemeral per tab; you can change to Date.now() if you want
+  return 'user_' + crypto.randomUUID();
+}
+
 function App() {
+  const userId = useMemo(getEphemeralUserId, []);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionKey, setSessionKey] = useState<number>(0); // force remount on new session
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string>('');
   const [feedback, setFeedback] = useState<AnswerResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState<any>(null);
-  const [showProgress, setShowProgress] = useState(false);
+  const [questionNumber, setQuestionNumber] = useState<number>(1);
+
+  const hardResetUI = () => {
+    setSessionId(null);
+    setCurrentQuestion(null);
+    setSelectedAnswer('');
+    setFeedback(null);
+    setLoading(false);
+    setQuestionNumber(1);
+    setSessionKey(k => k + 1); // <- this is what guarantees a clean slate visually
+  };
 
   const handleStart = async () => {
     setLoading(true);
     try {
-      const userId = 'user_' + Date.now();
-      const response = await startSession(userId);
-      setSessionId(response.session_id);
-      setCurrentQuestion(response.question);
-    } catch (error) {
-      console.error('Error starting session:', error);
+      const resp = await startSession(userId);
+      setSessionId(resp.session_id);
+      setCurrentQuestion(resp.question);
+      setSelectedAnswer('');
+      setFeedback(null);
+      setQuestionNumber(1);
+      setSessionKey(k => k + 1); // clean mount for a new run
+    } catch (e) {
+      console.error(e);
       alert('Failed to start session');
+      hardResetUI();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEndTest = async () => {
+    if (sessionId) {
+      await deleteSession(sessionId); // tell backend we're done (best-effort)
+    }
+    hardResetUI(); // clean slate, no question, no colours
+  };
+
+  const handleNewSession = async () => {
+    setLoading(true);
+    const oldSessionId = sessionId;
+    
+    try {
+      // Start new session first to get fresh question
+      const resp = await startSession(userId);
+      
+      // Update all state with completely new session data
+      setSessionId(resp.session_id);
+      setCurrentQuestion(resp.question);
+      setSelectedAnswer('');
+      setFeedback(null);
+      setQuestionNumber(1);
+      setSessionKey(k => k + 1); // Force fresh render
+      
+      // Clean up old session in background (best effort)
+      if (oldSessionId) {
+        deleteSession(oldSessionId).catch(() => {});
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to start new session');
+      hardResetUI();
     } finally {
       setLoading(false);
     }
@@ -31,15 +87,10 @@ function App() {
     if (!sessionId || !selectedAnswer) return;
     setLoading(true);
     try {
-      const response = await submitAnswer(sessionId, selectedAnswer);
-      setFeedback(response);
-      if (response.complete) {
-        const prog = await getProgress(sessionId);
-        setProgress(prog);
-        setShowProgress(true);
-      }
-    } catch (error) {
-      console.error('Error submitting answer:', error);
+      const resp = await submitAnswer(sessionId, selectedAnswer);
+      setFeedback(resp);
+    } catch (e) {
+      console.error(e);
       alert('Failed to submit answer');
     } finally {
       setLoading(false);
@@ -51,111 +102,64 @@ function App() {
       setCurrentQuestion(feedback.next_question);
       setSelectedAnswer('');
       setFeedback(null);
+      setQuestionNumber(n => n + 1);
     }
   };
 
-  const handleViewProgress = async () => {
-    if (!sessionId) return;
-    try {
-      const prog = await getProgress(sessionId);
-      setProgress(prog);
-      setShowProgress(true);
-    } catch (error) {
-      console.error('Error getting progress:', error);
-    }
-  };
-
+  // Start screen
   if (!sessionId) {
     return (
       <div className="container">
         <div className="card">
           <h1>🚗 Irish Driving Test AI</h1>
-          <p>Personalized practice for your theory test</p>
-          <button onClick={handleStart} disabled={loading} className="btn-primary">
-            {loading ? 'Starting...' : 'Start Practice'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (showProgress) {
-    return (
-      <div className="container">
-        <div className="card">
-          <h2>📊 Your Progress</h2>
-          <div className="stats">
-            <div className="stat">
-              <div className="stat-value">{progress.total_answered}</div>
-              <div className="stat-label">Questions</div>
-            </div>
-            <div className="stat">
-              <div className="stat-value">{progress.correct_answers}</div>
-              <div className="stat-label">Correct</div>
-            </div>
-            <div className="stat">
-              <div className="stat-value">{progress.overall_accuracy.toFixed(1)}%</div>
-              <div className="stat-label">Accuracy</div>
-            </div>
+          <p>Personalised practice for your theory test</p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={handleStart} disabled={loading} className="btn-primary">
+              {loading ? 'Starting…' : 'Start Practice'}
+            </button>
           </div>
-          <h3>Category Scores</h3>
-          {Object.entries(progress.category_scores).map(([category, score]: [string, any]) => (
-            <div key={category} className="category-score">
-              <div className="category-name">{category.replace('_', ' ')}</div>
-              <div className="category-stats">
-                {score.correct}/{score.total} ({((score.correct/score.total)*100).toFixed(0)}%)
-              </div>
-            </div>
-          ))}
-          {progress.weak_categories.length > 0 && (
-            <div className="weak-areas">
-              <h3>⚠️ Areas to Improve</h3>
-              {progress.weak_categories.map((cat: string) => (
-                <span key={cat} className="badge badge-warning">{cat.replace('_', ' ')}</span>
-              ))}
-            </div>
-          )}
-          <button onClick={() => {
-            setShowProgress(false);
-            setSessionId(null);
-            setCurrentQuestion(null);
-            setProgress(null);
-          }} className="btn-primary">
-            Start New Session
-          </button>
         </div>
       </div>
     );
   }
 
-  if (!currentQuestion) return <div className="container"><div className="card">Loading...</div></div>;
+  // Test screen
+  if (!currentQuestion) {
+    return <div className="container"><div className="card">Loading…</div></div>;
+  }
 
   return (
-    <div className="container">
+    <div className="container" key={sessionKey /* remounts on new session */}>
       <div className="header">
-        <h2>Irish Driving Test Practice</h2>
-        <button onClick={handleViewProgress} className="btn-secondary">
-          View Progress
-        </button>
+        <h2>Irish Driving Test Practice (Question {questionNumber}/15)</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleEndTest} className="btn-secondary">End Test</button>
+          <button onClick={handleNewSession} className="btn-primary">New Session</button>
+        </div>
       </div>
+
       <div className="card">
         {currentQuestion.image_url && (
-          <img 
+          <img
             src={'http://localhost:8000' + currentQuestion.image_url}
             alt="Driving scenario"
             className="scenario-image"
           />
         )}
+
         <div className="badges">
-          <span className="badge">{currentQuestion.category.replace('_', ' ')}</span>
+          <span className="badge">{currentQuestion.category.replaceAll('_', ' ')}</span>
         </div>
+
         <h3 className="question-text">{currentQuestion.text}</h3>
+
         <div className="options">
           {currentQuestion.options.map((option) => {
             const letter = option.charAt(0);
             const isSelected = selectedAnswer === letter;
             const isCorrect = feedback?.correct_answer === letter;
             const isWrong = feedback && selectedAnswer === letter && !feedback.is_correct;
+
             let className = 'option';
             if (feedback) {
               if (isCorrect) className += ' correct';
@@ -163,6 +167,7 @@ function App() {
             } else if (isSelected) {
               className += ' selected';
             }
+
             return (
               <button
                 key={letter}
@@ -175,12 +180,14 @@ function App() {
             );
           })}
         </div>
+
         {feedback && (
           <div className={'feedback ' + (feedback.is_correct ? 'correct' : 'wrong')}>
             <strong>{feedback.is_correct ? '✓ Correct!' : '✗ Incorrect'}</strong>
             <p>{feedback.explanation}</p>
           </div>
         )}
+
         <div className="actions">
           {!feedback ? (
             <button
@@ -188,11 +195,11 @@ function App() {
               disabled={!selectedAnswer || loading}
               className="btn-primary"
             >
-              {loading ? 'Submitting...' : 'Submit Answer'}
+              {loading ? 'Submitting…' : 'Submit Answer'}
             </button>
           ) : feedback.complete ? (
-            <button onClick={handleViewProgress} className="btn-primary">
-              View Final Results
+            <button onClick={handleEndTest} className="btn-primary">
+              End Test
             </button>
           ) : (
             <button onClick={handleNext} className="btn-primary">
