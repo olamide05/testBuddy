@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { 
   AppBar, Toolbar, Typography, Box, CssBaseline, Drawer, List, ListItemButton, 
-  ListItemIcon, ListItemText, IconButton, Avatar, Tooltip, Divider 
+  ListItemIcon, ListItemText, IconButton, Avatar, Tooltip, Divider, Button 
 } from '@mui/material';
 import { 
-  Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, Dashboard as DashboardIcon, DirectionsCar, 
-  School, MonetizationOn, Assignment, AccountCircle, Login, SwapHoriz  // ← ADDED SwapHoriz
+  Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, Dashboard as DashboardIcon, 
+  DirectionsCar, School, MonetizationOn, Assignment, AccountCircle, 
+  Login as LoginIcon, Logout as LogoutIcon, SwapHoriz  
 } from '@mui/icons-material';
 
-// --- Page Imports (CRITICAL: Make sure these paths are correct) ---
+// --- Page Imports ---
 import Dashboard from './pages/dashboard';
 import InsurancePage from './pages/insurance';
 import AdvertisementPage from './pages/instructors';
@@ -17,39 +18,55 @@ import ProfilePage from './pages/profile';
 import BookingPage from './pages/booking';
 import TheorySimulatorPage from './pages/simulator-theory';
 import SwapMarketPage from './pages/swap-market';
+import LandingPage from './pages/landing';  // ← NEW: Create this page
 
 // --- Configuration ---
 const openDrawerWidth = 260;
 const closedDrawerWidth = 72;
 const headerHeight = 64;
 
-// --- Menu Configuration with Components ---
+// --- Menu Configuration (only for logged-in users) ---
 const menuItems = [
-  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, component: <Dashboard /> },
-  { key: 'booking', label: 'Find a Test', icon: <DirectionsCar />, component: <BookingPage /> },
-  { key: 'theory', label: 'Theory & Simulator', icon: <School />, component: <TheorySimulatorPage /> },
-  { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage /> }, // ← ADDED THIS
-  { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage /> },
-  { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage /> },
+  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, component: <Dashboard />, requiresAuth: true },
+  { key: 'booking', label: 'Find a Test', icon: <DirectionsCar />, component: <BookingPage />, requiresAuth: true },
+  { key: 'theory', label: 'Theory & Simulator', icon: <School />, component: <TheorySimulatorPage />, requiresAuth: true },
+  { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage />, requiresAuth: true },
+  { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage />, requiresAuth: true },
+  { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage />, requiresAuth: true },
+  { key: 'profile', label: 'My Profile', icon: <AccountCircle />, component: <ProfilePage />, requiresAuth: true },
 ];
 
-const userMenuItems = [
-  { key: 'profile', label: 'My Profile', icon: <AccountCircle />, component: <ProfilePage /> },
-  { key: 'login', label: 'Login / Register', icon: <Login />, component: <LoginPage /> },
+// Landing page (for non-logged-in users)
+const publicPages = [
+  { key: 'landing', label: 'Home', component: <LandingPage />, requiresAuth: false },
+  { key: 'login', label: 'Login', component: <LoginPage />, requiresAuth: false },
 ];
-
-const allPages = [...menuItems, ...userMenuItems];
 
 // --- Main App Layout Component ---
 export default function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentPageKey, setCurrentPageKey] = useState('dashboard');
-  const [user, setUser] = useState({ loggedIn: true, name: 'Naza' });
+  const [currentPageKey, setCurrentPageKey] = useState('landing');
+  const [user, setUser] = useState({ loggedIn: false, name: '' });  // ← Set to false by default
 
   const handleSidebarToggle = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
-  
+
+  const handleLogin = () => {
+    // Replace with actual login logic
+    setUser({ loggedIn: true, name: 'Naza' });
+    setCurrentPageKey('dashboard');
+  };
+
+  const handleLogout = () => {
+    setUser({ loggedIn: false, name: '' });
+    setCurrentPageKey('landing');
+  };
+
+  // Filter pages based on auth status
+  const availablePages = user.loggedIn ? menuItems : publicPages;
+  const currentPage = availablePages.find(p => p.key === currentPageKey) || publicPages[0];
+
   const drawerContent = (
     <div>
       <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: [2], height: `${headerHeight}px` }}>
@@ -66,18 +83,11 @@ export default function AppLayout() {
       <List>
         {menuItems.map(({ key, label, icon }) => (
           <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={key}>
-            <ListItemButton sx={{ py: 1.5 }} onClick={() => setCurrentPageKey(key)} selected={currentPageKey === key}>
-              <ListItemIcon>{icon}</ListItemIcon>
-              {isSidebarOpen && <ListItemText primary={label} />}
-            </ListItemButton>
-          </Tooltip>
-        ))}
-      </List>
-      <Divider />
-      <List>
-        {userMenuItems.map(({ key, label, icon }) => (
-          <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={key}>
-            <ListItemButton sx={{ py: 1.5 }} onClick={() => setCurrentPageKey(key)} selected={currentPageKey === key}>
+            <ListItemButton 
+              sx={{ py: 1.5 }} 
+              onClick={() => setCurrentPageKey(key)} 
+              selected={currentPageKey === key}
+            >
               <ListItemIcon>{icon}</ListItemIcon>
               {isSidebarOpen && <ListItemText primary={label} />}
             </ListItemButton>
@@ -88,7 +98,6 @@ export default function AppLayout() {
   );
 
   const currentWidth = isSidebarOpen ? openDrawerWidth : closedDrawerWidth;
-  const currentPage = allPages.find(p => p.key === currentPageKey);
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -98,8 +107,8 @@ export default function AppLayout() {
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${currentWidth}px)` },
-          ml: { sm: `${currentWidth}px` },
+          width: user.loggedIn ? { sm: `calc(100% - ${currentWidth}px)` } : '100%',
+          ml: user.loggedIn ? { sm: `${currentWidth}px` } : 0,
           transition: (theme) => theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -108,36 +117,79 @@ export default function AppLayout() {
       >
         <Toolbar sx={{ justifyContent: 'space-between', height: `${headerHeight}px` }}>
           <Typography variant="h6" noWrap>
-            {currentPage?.label || 'Dashboard'}
+            {currentPage?.label || 'DriveNow'}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ bgcolor: 'secondary.main' }}>{user.name ? user.name.charAt(0) : 'G'}</Avatar>
-            <Typography sx={{ display: { xs: 'none', sm: 'block' } }}>{user.name || 'Guest'}</Typography>
+          
+          {/* RIGHT SIDE: Login/Logout + User Info */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {user.loggedIn ? (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                    {user.name ? user.name.charAt(0) : 'U'}
+                  </Avatar>
+                  <Typography sx={{ display: { xs: 'none', sm: 'block' } }}>
+                    {user.name || 'User'}
+                  </Typography>
+                </Box>
+                <Button 
+                  color="inherit" 
+                  onClick={handleLogout}
+                  startIcon={<LogoutIcon />}
+                  sx={{ display: { xs: 'none', sm: 'flex' } }}
+                >
+                  Logout
+                </Button>
+                <IconButton color="inherit" onClick={handleLogout} sx={{ display: { xs: 'flex', sm: 'none' } }}>
+                  <LogoutIcon />
+                </IconButton>
+              </>
+            ) : (
+              <>
+                <Button 
+                  color="inherit" 
+                  onClick={() => setCurrentPageKey('login')}
+                  startIcon={<LoginIcon />}
+                  sx={{ display: { xs: 'none', sm: 'flex' } }}
+                >
+                  Login
+                </Button>
+                <IconButton 
+                  color="inherit" 
+                  onClick={() => setCurrentPageKey('login')} 
+                  sx={{ display: { xs: 'flex', sm: 'none' } }}
+                >
+                  <LoginIcon />
+                </IconButton>
+              </>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar / Drawer */}
-      <Drawer
-        variant="permanent"
-        open={isSidebarOpen}
-        sx={{
-          width: currentWidth,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
+      {/* Sidebar / Drawer - ONLY show if logged in */}
+      {user.loggedIn && (
+        <Drawer
+          variant="permanent"
+          open={isSidebarOpen}
+          sx={{
             width: currentWidth,
-            boxSizing: 'border-box',
-            transition: (theme) => theme.transitions.create('width', {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
-            overflowX: 'hidden',
-          },
-          display: { xs: 'none', sm: 'block' }
-        }}
-      >
-        {drawerContent}
-      </Drawer>
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: currentWidth,
+              boxSizing: 'border-box',
+              transition: (theme) => theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+              overflowX: 'hidden',
+            },
+            display: { xs: 'none', sm: 'block' }
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
 
       {/* Main Content Area */}
       <Box
@@ -150,7 +202,7 @@ export default function AppLayout() {
           mt: `${headerHeight}px`,
         }}
       >
-        {currentPage?.component || <Dashboard />}
+        {currentPage?.component}
       </Box>
     </Box>
   );
