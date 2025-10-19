@@ -495,7 +495,7 @@ const InsurancePage = () => {
   if (isLoadingProfile) {
     return (
       <div className="insurance-container">
-        <h1>🧜‍♂️ TestBuddy Diving & Car Insurance</h1>
+        <h1>TestBuddy Diving & Car Insurance</h1>
         <p className="loading">Loading your profile...</p>
       </div>
     );
@@ -505,7 +505,7 @@ const InsurancePage = () => {
   if (!currentUser) {
     return (
       <div className="insurance-container">
-        <h1>🧜‍♂️ TestBuddy Diving & Car Insurance</h1>
+        <h1>TestBuddy Diving & Car Insurance</h1>
         <div className="status-message error">
           ⚠️ Please sign in to access insurance quotes.
         </div>
@@ -515,7 +515,7 @@ const InsurancePage = () => {
 
   return (
     <div className="insurance-container">
-      <h1>🧜‍♂️ TestBuddy Diving & Car Insurance</h1>
+      <h1>TestBuddy Diving & Car Insurance</h1>
       <p className="intro">
         Welcome back, <strong>{profile.name}</strong>! Compare insurance quotes below 👇
       </p>

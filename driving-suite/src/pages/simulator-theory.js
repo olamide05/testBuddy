@@ -120,7 +120,7 @@ export default function TheorySimulatorPage() {
         <Card elevation={3}>
           <CardContent sx={{ textAlign: 'center', p: 6 }}>
             <Typography variant="h3" gutterBottom>
-              🚗 Irish Driving Test AI
+              Irish Driving Test AI
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
               AI-powered personalized practice for your theory test
