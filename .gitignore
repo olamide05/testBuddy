@@ -24,6 +24,7 @@ yarn-error.log*
 
 # driving-test-ai
 /driving-test-ai/backend/.env
+/driving-test-ai/node_modules/
 
 # Python
 .venv/
