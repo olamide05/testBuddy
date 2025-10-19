@@ -1,17 +1,20 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Circle, Autocomplete } from '@react-google-maps/api';
 import {
   Box, Card, CardContent, Typography, Grid, Chip, Button, TextField,
   Select, MenuItem, FormControl, InputLabel, Alert, Paper, Divider,
-  List, ListItem, ListItemText, ListItemIcon, IconButton, Tabs, Tab
+  List, ListItem, ListItemText, ListItemIcon, Tabs, Tab, Snackbar
 } from '@mui/material';
 import {
   LocationOn, Phone, Schedule, TrendingUp, DirectionsCar, Star,
-  Navigation, CheckCircle, Warning, Info, Search, MyLocation
+  Navigation, CheckCircle, Warning, Info, Search, MyLocation, Cancel
 } from '@mui/icons-material';
+import { getAuth } from 'firebase/auth';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import './booking.css';
 
-
+const TESTBUDDY_COLOR = '#17a2b8';
 
 const CENTRES_DATA = [
   {
@@ -125,7 +128,6 @@ const mapOptions = {
   fullscreenControl: true
 };
 
-// IMPORTANT: Add 'places' library
 const libraries = ['places'];
 
 export default function TestCentresPage() {
@@ -136,22 +138,40 @@ export default function TestCentresPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [autocomplete, setAutocomplete] = useState(null);
   const [searchInput, setSearchInput] = useState('');
-    // --- Booking state ---
   const [bookedTest, setBookedTest] = useState(null);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [loading, setLoading] = useState(true);
 
-  // --- Load saved booking when page loads ---
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  // Load booking from Firebase when component mounts
   useEffect(() => {
-    const savedBooking = localStorage.getItem('bookedTest');
-    if (savedBooking) {
-      setBookedTest(JSON.parse(savedBooking));
-    }
-  }, []);
+    const loadBooking = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const bookingDoc = await getDoc(doc(db, 'bookings', user.uid));
+        if (bookingDoc.exists()) {
+          setBookedTest(bookingDoc.data());
+        }
+      } catch (error) {
+        console.error('Error loading booking:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBooking();
+  }, [user]);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: 'AIzaSyCQ30DmZrIFUO1TtdJs3h1xrnSP11uPMss',
-    libraries // Add this!
+    libraries
   });
 
   const [map, setMap] = useState(null);
@@ -164,12 +184,10 @@ export default function TestCentresPage() {
     setMap(null);
   }, []);
 
-  // Handle autocomplete load
   const onAutocompleteLoad = (autocompleteObj) => {
     setAutocomplete(autocompleteObj);
   };
 
-  // Handle place selection from autocomplete
   const onPlaceChanged = () => {
     if (autocomplete !== null) {
       const place = autocomplete.getPlace();
@@ -189,12 +207,11 @@ export default function TestCentresPage() {
           map.setZoom(12);
         }
       } else {
-        alert('No location details available for this address');
+        setSnackbar({ open: true, message: 'No location details available for this address', severity: 'error' });
       }
     }
   };
 
-  // Get user's current location via GPS
   const handleGetMyLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -211,19 +228,20 @@ export default function TestCentresPage() {
             map.panTo(pos);
             map.setZoom(12);
           }
+          
+          setSnackbar({ open: true, message: '📍 Location set successfully!', severity: 'success' });
         },
         () => {
-          alert('Could not get your location. Please enter your address manually.');
+          setSnackbar({ open: true, message: 'Could not get your location. Please enter your address manually.', severity: 'error' });
         }
       );
     } else {
-      alert('Geolocation is not supported by your browser.');
+      setSnackbar({ open: true, message: 'Geolocation is not supported by your browser.', severity: 'error' });
     }
   };
 
-  // Calculate distance between two points (Haversine formula)
   const calculateDistance = (lat1, lng1, lat2, lng2) => {
-    const R = 6371; // Earth radius in km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -233,7 +251,6 @@ export default function TestCentresPage() {
     return R * c;
   };
 
-  // Sort centres by selected criteria
   const getSortedCentres = () => {
     let sorted = [...CENTRES_DATA];
     
@@ -257,35 +274,77 @@ export default function TestCentresPage() {
     return 'error';
   };
 
-  const handleBookTest = (centre) => {
-  const booking = {
-    centreId: centre.id,
-    centreName: centre.name,
-    bookedAt: new Date().toISOString(),
-  };
-  localStorage.setItem('bookedTest', JSON.stringify(booking));
-  setBookedTest(booking);
-  setBookingSuccess(true);
+  // Book test and save to Firebase
+  const handleBookTest = async (centre) => {
+    if (!user) {
+      setSnackbar({ open: true, message: 'Please log in to book a test', severity: 'error' });
+      return;
+    }
+
+    try {
+      const booking = {
+        centreId: centre.id,
+        centreName: centre.name,
+        centreAddress: centre.address,
+        waitWeeks: centre.waitWeeks,
+        passRate: centre.passRate,
+        phone: centre.phone,
+        bookedAt: new Date().toISOString(),
+        userId: user.uid,
+        userEmail: user.email
+      };
+
+      // Save to Firebase
+      await setDoc(doc(db, 'bookings', user.uid), booking);
+      
+      setBookedTest(booking);
+      setSnackbar({ 
+        open: true, 
+        message: `✅ Test booked at ${centre.name}! Good luck!`, 
+        severity: 'success' 
+      });
+    } catch (error) {
+      console.error('Error booking test:', error);
+      setSnackbar({ 
+        open: true, 
+        message: 'Failed to book test. Please try again.', 
+        severity: 'error' 
+      });
+    }
   };
 
-  const CentreCard = ({
-     centre,
-     userLocation, 
-     calculateDistance, 
-     setSelectedCentre, 
-     map, 
-     setActiveTab, 
-     bookedTest,
-     handleBookTest
-    
-    }) => {
+  // Cancel booking and remove from Firebase
+  const handleCancelBooking = async () => {
+    if (!user) return;
+
+    try {
+      await deleteDoc(doc(db, 'bookings', user.uid));
+      setBookedTest(null);
+      setSnackbar({ 
+        open: true, 
+        message: 'Booking cancelled successfully', 
+        severity: 'info' 
+      });
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      setSnackbar({ 
+        open: true, 
+        message: 'Failed to cancel booking. Please try again.', 
+        severity: 'error' 
+      });
+    }
+  };
+
+  const CentreCard = ({ centre }) => {
     const distance = userLocation 
       ? calculateDistance(userLocation.lat, userLocation.lng, centre.lat, centre.lng)
       : null;
 
     const isBooked = bookedTest?.centreId === centre.id;
+    const isOtherBooked = bookedTest && bookedTest.centreId !== centre.id;
+
     return (
-      <Card sx={{ mb: 2, '&:hover': { boxShadow: 6 } }}>
+      <Card sx={{ mb: 2, '&:hover': { boxShadow: 6 }, borderRadius: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
             <Box>
@@ -294,18 +353,27 @@ export default function TestCentresPage() {
                 {centre.address}
               </Typography>
             </Box>
-            {distance && (
-              <Chip 
-                label={`${distance.toFixed(1)} km`} 
-                color="primary" 
-                icon={<Navigation />}
-              />
-            )}
+            <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
+              {distance && (
+                <Chip 
+                  label={`${distance.toFixed(1)} km`} 
+                  sx={{ bgcolor: TESTBUDDY_COLOR, color: 'white' }}
+                  icon={<Navigation sx={{ color: 'white !important' }} />}
+                />
+              )}
+              {isBooked && (
+                <Chip 
+                  label="✓ Booked" 
+                  color="success"
+                  sx={{ fontWeight: 'bold' }}
+                />
+              )}
+            </Box>
           </Box>
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6} md={3}>
-              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center' }}>
+              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center', borderRadius: 2 }}>
                 <Typography variant="caption" color="text.secondary">Wait Time</Typography>
                 <Typography variant="h6" color={centre.waitWeeks < 15 ? 'success.main' : 'error.main'}>
                   {centre.waitWeeks}w
@@ -313,7 +381,7 @@ export default function TestCentresPage() {
               </Paper>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center' }}>
+              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center', borderRadius: 2 }}>
                 <Typography variant="caption" color="text.secondary">Pass Rate</Typography>
                 <Typography variant="h6" color={centre.passRate >= 55 ? 'success.main' : 'warning.main'}>
                   {centre.passRate}%
@@ -321,7 +389,7 @@ export default function TestCentresPage() {
               </Paper>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center' }}>
+              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center', borderRadius: 2 }}>
                 <Typography variant="caption" color="text.secondary">Difficulty</Typography>
                 <Chip 
                   label={centre.difficulty} 
@@ -332,7 +400,7 @@ export default function TestCentresPage() {
               </Paper>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center' }}>
+              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f9fafb', textAlign: 'center', borderRadius: 2 }}>
                 <Typography variant="caption" color="text.secondary">Slots/Week</Typography>
                 <Typography variant="h6">{centre.slotsPerWeek}</Typography>
               </Paper>
@@ -343,7 +411,6 @@ export default function TestCentresPage() {
             <Button
               variant="contained"
               size="small"
-              color={bookedTest?.centreId === centre.id ? 'success' : 'primary'}
               onClick={() => {
                 setSelectedCentre(centre);
                 if (map) {
@@ -351,6 +418,10 @@ export default function TestCentresPage() {
                   map.setZoom(14);
                 }
                 setActiveTab(0);
+              }}
+              sx={{
+                bgcolor: TESTBUDDY_COLOR,
+                '&:hover': { bgcolor: '#138496' }
               }}
             >
               View on Map
@@ -376,34 +447,38 @@ export default function TestCentresPage() {
               Directions
             </Button>
 
-           <Button
-             variant="contained"
-             size="small"
-             color={isBooked ? 'success' : 'inherit'} // 🟢 Use grey color when other tests are blocked
-             startIcon={<CheckCircle />}
-             disabled={
-              bookedTest && bookedTest.centreId !== centre.id // 🟢 disable if another test is booked
-  }
-  onClick={() => handleBookTest(centre)}
->
-  {isBooked
-    ? 'Already Booked'
-    : bookedTest
-    ? 'Booking Locked'
-    : 'Book Test'}
-</Button>
-
-
+            {isBooked ? (
+              <Button
+                variant="contained"
+                size="small"
+                color="error"
+                startIcon={<Cancel />}
+                onClick={handleCancelBooking}
+              >
+                Cancel Booking
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                size="small"
+                color={isOtherBooked ? 'inherit' : 'success'}
+                startIcon={<CheckCircle />}
+                disabled={isOtherBooked}
+                onClick={() => handleBookTest(centre)}
+              >
+                {isOtherBooked ? 'Another Test Booked' : 'Book Test'}
+              </Button>
+            )}
           </Box>
         </CardContent>
       </Card>
     );
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <Typography>Loading map...</Typography>
+        <Typography>Loading...</Typography>
       </Box>
     );
   }
@@ -411,15 +486,54 @@ export default function TestCentresPage() {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Find Test Centres
+        🗺️ Find Test Centres
       </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom>
         Compare centres, check wait times, and find the best option for you
       </Typography>
 
+      {bookedTest && (
+        <Alert 
+          severity="success" 
+          sx={{ mt: 2, mb: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={handleCancelBooking}
+              startIcon={<Cancel />}
+            >
+              Cancel
+            </Button>
+          }
+        >
+          <Typography variant="body2">
+            <strong>📍 Test Booked:</strong> {bookedTest.centreName} - {bookedTest.centreAddress}
+          </Typography>
+          <Typography variant="caption">
+            Booked on {new Date(bookedTest.bookedAt).toLocaleDateString('en-IE')} • Wait time: {bookedTest.waitWeeks} weeks • Pass rate: {bookedTest.passRate}%
+          </Typography>
+        </Alert>
+      )}
+
       <Divider sx={{ my: 3 }} />
 
-      <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 3 }}>
+      <Tabs 
+        value={activeTab} 
+        onChange={(e, v) => setActiveTab(v)} 
+        sx={{ 
+          mb: 3,
+          '& .MuiTab-root': {
+            color: 'text.secondary',
+            '&.Mui-selected': {
+              color: TESTBUDDY_COLOR
+            }
+          },
+          '& .MuiTabs-indicator': {
+            backgroundColor: TESTBUDDY_COLOR
+          }
+        }}
+      >
         <Tab label="Map View" />
         <Tab label="List View" />
         <Tab label="Compare" />
@@ -428,13 +542,11 @@ export default function TestCentresPage() {
       {/* TAB 1: Map View */}
       {activeTab === 0 && (
         <Grid container spacing={3}>
-          {/* LEFT: fixed-width map on md+ */}
           <Grid
             item
             xs={12}
             md="auto"
             sx={{
-              // fixed width at md and up, full width on small screens
               flex: { md: '0 0 720px' },
               maxWidth: { md: '720px' },
               width: { xs: '100%', md: '720px' },
@@ -449,7 +561,6 @@ export default function TestCentresPage() {
                 onUnmount={onUnmount}
                 options={mapOptions}
               >
-                {/* User location marker */}
                 {userLocation && (
                   <Marker
                     position={userLocation}
@@ -460,7 +571,6 @@ export default function TestCentresPage() {
                   />
                 )}
 
-                {/* Centre markers */}
                 {CENTRES_DATA.map((centre) => (
                   <Marker
                     key={centre.id}
@@ -473,7 +583,6 @@ export default function TestCentresPage() {
                   />
                 ))}
 
-                {/* Info window */}
                 {selectedCentre && (
                   <InfoWindow
                     position={{ lat: selectedCentre.lat, lng: selectedCentre.lng }}
@@ -485,9 +594,7 @@ export default function TestCentresPage() {
                         maxWidth: 250,
                         wordBreak: 'break-word', 
                         overflowWrap: 'anywhere',
-                        pointerEvents: 'auto',
-                        zIndex: 9999,
-                         }}
+                      }}
                     >
                       <Typography variant="h6" gutterBottom>{selectedCentre.name}</Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -498,30 +605,47 @@ export default function TestCentresPage() {
                       <Typography variant="body2"><strong>Pass Rate:</strong> {selectedCentre.passRate}%</Typography>
                       <Typography variant="body2"><strong>Phone:</strong> {selectedCentre.phone}</Typography>
 
-                      <Button
-                       variant="contained"
-                       color={bookedTest?.centreId === selectedCentre.id ? 'success' : 'primary'}
-                       size="small"
-                       sx={{ mt:1 }}
-                       startIcon={<CheckCircle />}
-                       onClick={() => handleBookTest(selectedCentre)}
-                       disabled={bookedTest?.centreId === selectedCentre.id}
-                      >
-                      {bookedTest?.centreId === selectedCentre.id ? 'Already Booked' : 'Book Test'}
-                      </Button>
+                      {bookedTest?.centreId === selectedCentre.id ? (
+                        <Button
+                          variant="contained"
+                          color="error"
+                          size="small"
+                          fullWidth
+                          sx={{ mt: 1 }}
+                          startIcon={<Cancel />}
+                          onClick={handleCancelBooking}
+                        >
+                          Cancel Booking
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          fullWidth
+                          sx={{ 
+                            mt: 1,
+                            bgcolor: TESTBUDDY_COLOR,
+                            '&:hover': { bgcolor: '#138496' }
+                          }}
+                          startIcon={<CheckCircle />}
+                          onClick={() => handleBookTest(selectedCentre)}
+                          disabled={bookedTest && bookedTest.centreId !== selectedCentre.id}
+                        >
+                          {bookedTest ? 'Another Test Booked' : 'Book Test'}
+                        </Button>
+                      )}
                     </Box>
                   </InfoWindow>
                 )}
 
-                {/* Circle around user location */}
                 {userLocation && (
                   <Circle
                     center={userLocation}
-                    radius={50000} // 50km radius
+                    radius={50000}
                     options={{
-                      fillColor: '#667eea',
+                      fillColor: TESTBUDDY_COLOR,
                       fillOpacity: 0.1,
-                      strokeColor: '#667eea',
+                      strokeColor: TESTBUDDY_COLOR,
                       strokeOpacity: 0.3,
                       strokeWeight: 2
                     }}
@@ -531,7 +655,6 @@ export default function TestCentresPage() {
             </Box>
           </Grid>
 
-          {/* RIGHT: flexible panel that wraps text and scrolls if content is long */}
           <Grid
             item
             xs={12}
@@ -548,13 +671,12 @@ export default function TestCentresPage() {
                   📍 Your Location
                 </Typography>
                 
-                {/* ADDRESS SEARCH BOX */}
                 <Box sx={{ mb: 2 }}>
                   <Autocomplete
                     onLoad={onAutocompleteLoad}
                     onPlaceChanged={onPlaceChanged}
                     options={{
-                      componentRestrictions: { country: 'ie' }, // Restrict to Ireland
+                      componentRestrictions: { country: 'ie' },
                       fields: ['geometry', 'formatted_address', 'name']
                     }}
                   >
@@ -571,20 +693,22 @@ export default function TestCentresPage() {
                   </Autocomplete>
                 </Box>
 
-                {/* OR DIVIDER */}
                 <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
                   <Divider sx={{ flex: 1 }} />
                   <Typography variant="body2" sx={{ mx: 2, color: 'text.secondary' }}>OR</Typography>
                   <Divider sx={{ flex: 1 }} />
                 </Box>
 
-                {/* GPS LOCATION BUTTON */}
                 <Button
                   variant="contained"
                   fullWidth
                   startIcon={<MyLocation />}
                   onClick={handleGetMyLocation}
-                  sx={{ mb: 2 }}
+                  sx={{ 
+                    mb: 2,
+                    bgcolor: TESTBUDDY_COLOR,
+                    '&:hover': { bgcolor: '#138496' }
+                  }}
                 >
                   Use My Current Location
                 </Button>
@@ -625,7 +749,6 @@ export default function TestCentresPage() {
               </CardContent>
             </Card>
 
-            {/* selectedCentre details card wrapped to prevent overflow */}
             {selectedCentre && (
               <Card sx={{ mt: 2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                 <CardContent>
@@ -701,16 +824,7 @@ export default function TestCentresPage() {
           </Grid>
 
           {getSortedCentres().map((centre) => (
-            <CentreCard 
-            key={centre.id} 
-            centre={centre}
-            userLocation={userLocation}
-            calculateDistance={calculateDistance}
-            setSelectedCentre={setSelectedCentre}
-            map={map}
-            setActiveTab={setActiveTab}
-            bookedTest={bookedTest}
-             />
+            <CentreCard key={centre.id} centre={centre} />
           ))}
         </Box>
       )}
@@ -725,20 +839,27 @@ export default function TestCentresPage() {
           <Grid container spacing={2}>
             {CENTRES_DATA.slice(0, 3).map((centre) => (
               <Grid item xs={12} md={4} key={centre.id}>
-                <CentreCard
-                  centre={centre}
-                  userLocation={userLocation}
-                  calculateDistance={calculateDistance}
-                  setSelectedCentre={setSelectedCentre}
-                  map={map}
-                  setActiveTab={setActiveTab}
-                  bookedTest={bookedTest}
-                  />
+                <CentreCard centre={centre} />
               </Grid>
             ))}
           </Grid>
         </Box>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

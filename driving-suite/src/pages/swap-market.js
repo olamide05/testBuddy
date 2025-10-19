@@ -3,12 +3,14 @@ import {
   Box, Card, CardContent, Typography, Button, TextField, Chip, Grid,
   Tabs, Tab, Select, MenuItem, FormControl, InputLabel, Dialog,
   DialogTitle, DialogContent, DialogActions, Alert, LinearProgress,
-  Divider, IconButton, Tooltip, FormControlLabel, Checkbox
+  Divider, IconButton, Tooltip, FormControlLabel, Checkbox, Snackbar
 } from '@mui/material';
 import {
   SwapHoriz, Add, Search, FilterList, Schedule, LocationOn,
-  CheckCircle, Star, Message, Close, Info
+  CheckCircle, Star, Message, Close, Info, Send
 } from '@mui/icons-material';
+
+const TESTBUDDY_COLOR = '#17a2b8';
 
 export default function TestSwapPage() {
   const [activeTab, setActiveTab] = useState(0);
@@ -18,6 +20,16 @@ export default function TestSwapPage() {
   const [filterCentre, setFilterCentre] = useState([]);
   const [sortBy, setSortBy] = useState('match');
   const [listingDialogOpen, setListingDialogOpen] = useState(false);
+  const [proposeDialogOpen, setProposeDialogOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [proposeFormData, setProposeFormData] = useState({
+    myTestCentre: '',
+    myTestDate: '',
+    myTestTime: '',
+    message: '',
+    agreeEscrow: false
+  });
 
   // Mock data
   const mockListings = [
@@ -82,13 +94,55 @@ export default function TestSwapPage() {
 
   const centres = ['Tallaght', 'Rathgar', 'Cork', 'Wilton', 'Galway', 'Limerick', 'Waterford', 'Cavan'];
 
-  const handleProposeSwap = (listing) => {
-    setSwapRequests([...swapRequests, {
-      listingId: listing.id,
-      user: listing.user,
+  const handleOpenProposeDialog = (listing) => {
+    setSelectedListing(listing);
+    setProposeFormData({
+      myTestCentre: '',
+      myTestDate: '',
+      myTestTime: '',
+      message: `Hi ${listing.user.split(' ')[0]}, I'm interested in swapping my test slot with yours. My test is in one of your preferred centres and the dates work well for me. Let's make this happen!`,
+      agreeEscrow: false
+    });
+    setProposeDialogOpen(true);
+  };
+
+  const handleSubmitProposal = () => {
+    if (!proposeFormData.myTestCentre || !proposeFormData.myTestDate || !proposeFormData.myTestTime) {
+      setSnackbar({ open: true, message: 'Please fill in all your test details', severity: 'error' });
+      return;
+    }
+
+    if (!proposeFormData.agreeEscrow) {
+      setSnackbar({ open: true, message: 'Please agree to the escrow terms', severity: 'error' });
+      return;
+    }
+
+    // Add to swap requests
+    const newRequest = {
+      id: `REQ${Date.now()}`,
+      listingId: selectedListing.id,
+      user: selectedListing.user,
+      theirTest: selectedListing.offering,
+      myTest: {
+        centre: proposeFormData.myTestCentre,
+        date: proposeFormData.myTestDate,
+        time: proposeFormData.myTestTime
+      },
+      message: proposeFormData.message,
       status: 'pending',
       requestedAt: new Date()
-    }]);
+    };
+
+    setSwapRequests([...swapRequests, newRequest]);
+    setProposeDialogOpen(false);
+    setSnackbar({ 
+      open: true, 
+      message: `✅ Swap proposal sent to ${selectedListing.user}! They'll be notified.`, 
+      severity: 'success' 
+    });
+    
+    // Switch to "My Requests" tab
+    setActiveTab(2);
   };
 
   const getMatchColor = (score) => {
@@ -100,7 +154,7 @@ export default function TestSwapPage() {
   // Stats Cards
   const StatCard = ({ value, label, gradient }) => (
     <Card sx={{
-      background: gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: gradient || `linear-gradient(135deg, ${TESTBUDDY_COLOR} 0%, #138496 100%)`,
       color: 'white',
       textAlign: 'center'
     }}>
@@ -113,7 +167,7 @@ export default function TestSwapPage() {
 
   // Listing Card Component
   const ListingCard = ({ listing }) => (
-    <Card sx={{ mb: 2, '&:hover': { boxShadow: 6 } }}>
+    <Card sx={{ mb: 2, '&:hover': { boxShadow: 6 }, borderRadius: 3 }}>
       <CardContent>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -144,7 +198,7 @@ export default function TestSwapPage() {
           </Grid>
 
           <Grid item xs={12} md={2} sx={{ textAlign: 'center' }}>
-            <SwapHoriz sx={{ fontSize: 40, color: 'primary.main' }} />
+            <SwapHoriz sx={{ fontSize: 40, color: TESTBUDDY_COLOR }} />
           </Grid>
 
           <Grid item xs={12} md={5}>
@@ -171,9 +225,13 @@ export default function TestSwapPage() {
         <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
           <Button
             variant="contained"
-            startIcon={<Message />}
-            onClick={() => handleProposeSwap(listing)}
+            startIcon={<Send />}
+            onClick={() => handleOpenProposeDialog(listing)}
             fullWidth
+            sx={{ 
+              bgcolor: TESTBUDDY_COLOR,
+              '&:hover': { bgcolor: '#138496' }
+            }}
           >
             Propose Swap
           </Button>
@@ -188,6 +246,122 @@ export default function TestSwapPage() {
         </Box>
       </CardContent>
     </Card>
+  );
+
+  // Propose Swap Dialog
+  const ProposeSwapDialog = () => (
+    <Dialog open={proposeDialogOpen} onClose={() => setProposeDialogOpen(false)} maxWidth="md" fullWidth>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SwapHoriz sx={{ color: TESTBUDDY_COLOR }} />
+          Propose Swap with {selectedListing?.user}
+        </Box>
+        <IconButton
+          onClick={() => setProposeDialogOpen(false)}
+          sx={{ position: 'absolute', right: 8, top: 8 }}
+        >
+          <Close />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>You're proposing to swap:</strong>
+          <Box sx={{ mt: 1, pl: 2 }}>
+            <Typography variant="body2">
+              • <strong>They give you:</strong> {selectedListing?.offering.centre} on {selectedListing?.offering.date} at {selectedListing?.offering.time}
+            </Typography>
+            <Typography variant="body2">
+              • <strong>You give them:</strong> Your test slot (enter below)
+            </Typography>
+          </Box>
+        </Alert>
+
+        <Typography variant="h6" gutterBottom sx={{ color: TESTBUDDY_COLOR }}>
+          📝 Your Test Details
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>Your Test Centre</InputLabel>
+              <Select
+                value={proposeFormData.myTestCentre}
+                onChange={(e) => setProposeFormData({ ...proposeFormData, myTestCentre: e.target.value })}
+                label="Your Test Centre"
+              >
+                {centres.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Your Test Date"
+              value={proposeFormData.myTestDate}
+              onChange={(e) => setProposeFormData({ ...proposeFormData, myTestDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              type="time"
+              label="Your Test Time"
+              value={proposeFormData.myTestTime}
+              onChange={(e) => setProposeFormData({ ...proposeFormData, myTestTime: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+        </Grid>
+
+        <Typography variant="h6" gutterBottom sx={{ color: TESTBUDDY_COLOR }}>
+          💬 Message to {selectedListing?.user}
+        </Typography>
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          placeholder="Introduce yourself and explain why this swap works for you..."
+          value={proposeFormData.message}
+          onChange={(e) => setProposeFormData({ ...proposeFormData, message: e.target.value })}
+          sx={{ mb: 3 }}
+        />
+
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2" fontWeight="bold">
+            💰 Escrow Protection (€10)
+          </Typography>
+          <Typography variant="body2">
+            Both parties pay €10 held in escrow until swap is confirmed. This ensures commitment and prevents no-shows. Refunded immediately after successful swap.
+          </Typography>
+        </Alert>
+
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={proposeFormData.agreeEscrow}
+              onChange={(e) => setProposeFormData({ ...proposeFormData, agreeEscrow: e.target.checked })}
+            />
+          }
+          label="I agree to the €10 escrow deposit and swap terms"
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setProposeDialogOpen(false)}>Cancel</Button>
+        <Button
+          variant="contained"
+          startIcon={<Send />}
+          onClick={handleSubmitProposal}
+          disabled={!proposeFormData.agreeEscrow}
+          sx={{ 
+            bgcolor: TESTBUDDY_COLOR,
+            '&:hover': { bgcolor: '#138496' }
+          }}
+        >
+          Send Proposal
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 
   // Create Listing Dialog
@@ -206,7 +380,7 @@ export default function TestSwapPage() {
 
     const handleSubmit = () => {
       if (formData.seekCentres.length === 0) {
-        alert('Please select at least one centre');
+        setSnackbar({ open: true, message: 'Please select at least one centre', severity: 'error' });
         return;
       }
       
@@ -218,6 +392,7 @@ export default function TestSwapPage() {
       }]);
       
       setListingDialogOpen(false);
+      setSnackbar({ open: true, message: '✅ Your swap listing is now live!', severity: 'success' });
     };
 
     return (
@@ -361,6 +536,10 @@ export default function TestSwapPage() {
             variant="contained"
             onClick={handleSubmit}
             disabled={!formData.agreeTerms || formData.seekCentres.length === 0}
+            sx={{ 
+              bgcolor: TESTBUDDY_COLOR,
+              '&:hover': { bgcolor: '#138496' }
+            }}
           >
             🚀 List My Swap
           </Button>
@@ -397,10 +576,25 @@ export default function TestSwapPage() {
       <Divider sx={{ mb: 3 }} />
 
       {/* Tabs */}
-      <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 3 }}>
+      <Tabs 
+        value={activeTab} 
+        onChange={(e, v) => setActiveTab(v)} 
+        sx={{ 
+          mb: 3,
+          '& .MuiTab-root': {
+            color: 'text.secondary',
+            '&.Mui-selected': {
+              color: TESTBUDDY_COLOR
+            }
+          },
+          '& .MuiTabs-indicator': {
+            backgroundColor: TESTBUDDY_COLOR
+          }
+        }}
+      >
         <Tab icon={<Search />} label="Browse Swaps" />
         <Tab icon={<Add />} label="List Your Test" />
-        <Tab icon={<Message />} label="My Requests" />
+        <Tab icon={<Message />} label={`My Requests (${swapRequests.length})`} />
         <Tab icon={<Info />} label="How It Works" />
       </Tabs>
 
@@ -459,6 +653,10 @@ export default function TestSwapPage() {
             size="large"
             startIcon={<Add />}
             onClick={() => setListingDialogOpen(true)}
+            sx={{ 
+              bgcolor: TESTBUDDY_COLOR,
+              '&:hover': { bgcolor: '#138496' }
+            }}
           >
             Create Swap Listing
           </Button>
@@ -491,22 +689,44 @@ export default function TestSwapPage() {
               📭 No swap requests yet. Browse available swaps and propose one!
             </Alert>
           ) : (
-            swapRequests.map((req, i) => (
-              <Card key={i} sx={{ mb: 2 }}>
+            swapRequests.map((req) => (
+              <Card key={req.id} sx={{ mb: 2, borderRadius: 3 }}>
                 <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box>
                       <Typography variant="h6">Swap with {req.user}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        ID: {req.listingId}
+                        Request ID: {req.id}
                       </Typography>
                     </Box>
                     <Chip label="Pending" color="warning" />
                   </Box>
+
+                  <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">You Get:</Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        {req.theirTest.centre} - {req.theirTest.date} at {req.theirTest.time}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">You Give:</Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        {req.myTest.centre} - {req.myTest.date} at {req.myTest.time}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+
                   <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                    <Button variant="outlined" size="small">💬 Message</Button>
-                    <Button variant="outlined" size="small">🔔 Remind</Button>
-                    <Button variant="outlined" color="error" size="small">❌ Cancel</Button>
+                    <Button variant="outlined" size="small" startIcon={<Message />}>
+                      💬 Message
+                    </Button>
+                    <Button variant="outlined" size="small">
+                      🔔 Remind
+                    </Button>
+                    <Button variant="outlined" color="error" size="small">
+                      ❌ Cancel
+                    </Button>
                   </Box>
                 </CardContent>
               </Card>
@@ -529,11 +749,11 @@ export default function TestSwapPage() {
             { num: 6, title: 'Book Swapped Slots', desc: 'Quickly book each other\'s slots' },
             { num: 7, title: 'Confirm & Get Refund', desc: 'Upload proof, escrow released 🎉' }
           ].map(step => (
-            <Card key={step.num} sx={{ mb: 2 }}>
+            <Card key={step.num} sx={{ mb: 2, borderRadius: 3 }}>
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box
                   sx={{
-                    bgcolor: 'primary.main',
+                    bgcolor: TESTBUDDY_COLOR,
                     color: 'white',
                     width: 40,
                     height: 40,
@@ -566,6 +786,23 @@ export default function TestSwapPage() {
 
       {/* Dialogs */}
       <CreateListingDialog />
+      <ProposeSwapDialog />
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

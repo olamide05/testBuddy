@@ -246,29 +246,7 @@ function AppLayout() {
         })}
       </List>
 
-      {/* ✨ Footer Section with TestBuddy Color */}
-      {isSidebarOpen && (
-        <Box 
-          sx={{ 
-            position: 'absolute', 
-            bottom: 20, 
-            left: 20, 
-            right: 20,
-            px: 2,
-            py: 1.5,
-            borderRadius: '12px',
-            backgroundColor: `${TESTBUDDY_COLOR}10`,
-            border: `1px solid ${TESTBUDDY_COLOR}30`
-          }}
-        >
-          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem' }}>
-            © 2025 TestBuddy
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-            Your driving test companion
-          </Typography>
-        </Box>
-      )}
+      
     </div>
   );
 
