@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import "./insurance.css";
-import { firebaseConfig } from "../firebase";
+import { db, auth  , app} from "../firebase"; // ✅ Import the already-initialized services
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
 
 // CONSTANTS FOR CONFIGURATION
 const BASE_QUOTE_AMOUNT = 500;
@@ -46,17 +46,25 @@ const companies = [
   "Neptune Risk Solutions",
 ];
 
-
-//const DEMO_USER_ID = "niamh_user_id"; // <--- IMPORTANT: Update this to match your Firestore document ID
-
 const InsurancePage = () => {
+  const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState({
-    name: "", // Will be constructed from firstName and lastName
-    age: 0,    // Will be fetched from Firebase
-    yearsOfExperience: 5, // Default if not in Firestore, or fetch if added
-    annualMileage: 10000, // Default if not in Firestore, or fetch if added
-    ncdYears: 3,          // Default if not in Firestore, or fetch if added
-    car: { make: "", model: "", year: "", type: "", value: 0, engineSize: "", doors: "", transmission: "", fuel: "" },
+    name: "",
+    age: 0,
+    yearsOfExperience: 5,
+    annualMileage: 10000,
+    ncdYears: 3,
+    car: { 
+      make: "", 
+      model: "", 
+      year: "", 
+      type: "", 
+      value: 0, 
+      engineSize: "", 
+      doors: "", 
+      transmission: "", 
+      fuel: "" 
+    },
   });
 
   const [quotes, setQuotes] = useState([]);
@@ -64,14 +72,39 @@ const InsurancePage = () => {
   const [loadingReg, setLoadingReg] = useState(false);
   const [carImageUrl, setCarImageUrl] = useState("");
   const [statusMessage, setStatusMessage] = useState({ message: "", isError: false });
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
-  // Modified: Fetch profile data from Firebase
+  // Listen for authentication state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+        console.log("User authenticated:", user.uid);
+      } else {
+        setCurrentUser(null);
+        setStatusMessage({ 
+          message: "⚠️ Please sign in to view your profile.", 
+          isError: true 
+        });
+        setIsLoadingProfile(false);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch profile data from Firebase when user is authenticated
   useEffect(() => {
     const fetchProfileFromFirebase = async () => {
-      await new Promise((res) => setTimeout(res, 500)); // Simulate network delay
+      if (!currentUser) {
+        setIsLoadingProfile(false);
+        return;
+      }
 
       try {
-        const userDocRef = doc(db, "users");
+        // FIXED: Now using the authenticated user's UID as the document ID
+        const userDocRef = doc(db, "users", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
 
         if (userDocSnap.exists()) {
@@ -87,17 +120,23 @@ const InsurancePage = () => {
             yearsOfExperience: userData.yearsOfExperience || prev.yearsOfExperience,
             annualMileage: userData.annualMileage || prev.annualMileage,
             ncdYears: userData.ncdYears || prev.ncdYears,
-            // Keep existing car data if any
           }));
-          setStatusMessage({ message: "✅ Profile loaded from Firebase.", isError: false });
+          setStatusMessage({ 
+            message: `✅ Welcome back, ${fullName}!`, 
+            isError: false 
+          });
         } else {
-          console.warn("No user profile found in Firestore for ID:");
-          setStatusMessage({ message: "⚠️ No user profile found. Using default values.", isError: false });
-          // Fallback to initial default data if no profile is found in Firestore
+          console.warn("No user profile found in Firestore for UID:", currentUser.uid);
+          setStatusMessage({ 
+            message: "⚠️ No profile found. Please complete your profile setup.", 
+            isError: false 
+          });
+          // Use display name from auth if available
+          const displayName = currentUser.displayName || "User";
           setProfile((prev) => ({
             ...prev,
-            name: "Default User", // Generic default for display
-            age: 32, // Default
+            name: displayName,
+            age: 32,
             yearsOfExperience: 5,
             annualMileage: 10000,
             ncdYears: 3,
@@ -105,23 +144,30 @@ const InsurancePage = () => {
         }
       } catch (error) {
         console.error("Error fetching profile from Firebase:", error);
-        setStatusMessage({ message: `❌ Error fetching profile: ${error.message}`, isError: true });
-        // Fallback to initial default data on error
+        setStatusMessage({ 
+          message: `❌ Error fetching profile: ${error.message}`, 
+          isError: true 
+        });
+        // Fallback to default values
         setProfile((prev) => ({
           ...prev,
-          name: "Default User",
+          name: currentUser.displayName || "User",
           age: 32,
           yearsOfExperience: 5,
           annualMileage: 10000,
           ncdYears: 3,
         }));
+      } finally {
+        setIsLoadingProfile(false);
       }
     };
-    fetchProfileFromFirebase();
-  }, []); // Empty dependency array means this runs once on mount
 
-  // Helper to safely get text from XML (External API call: still a security risk)
-  // Re-iterating: For a production app, the username 'mahmoud2005' should NOT be in client-side code.
+    fetchProfileFromFirebase();
+  }, [currentUser]); // Depend on currentUser
+
+  // Helper to safely get text from XML
+  // WARNING: This external API call exposes credentials in client-side code.
+  // For production, move this to a Cloud Function or backend API.
   const getFirstTextContent = (doc, tagNames) => {
     for (const tagName of tagNames) {
       const element = doc.getElementsByTagName(tagName)[0];
@@ -138,12 +184,21 @@ const InsurancePage = () => {
   const handleLookupRegistration = async () => {
     const trimmedRegNumber = regNumber.trim().toUpperCase();
     if (!trimmedRegNumber) {
-      setStatusMessage({ message: "Enter a registration number.", isError: true });
+      setStatusMessage({ message: "⚠️ Please enter a registration number.", isError: true });
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!currentUser) {
+      setStatusMessage({ 
+        message: "⚠️ Please sign in to lookup vehicle information.", 
+        isError: true 
+      });
       return;
     }
 
     setLoadingReg(true);
-    setStatusMessage({ message: "", isError: false });
+    setStatusMessage({ message: "🔍 Looking up vehicle...", isError: false });
     setCarImageUrl("");
 
     try {
@@ -155,37 +210,41 @@ const InsurancePage = () => {
         const cachedCarData = carDocSnap.data();
         setProfile((prev) => ({ ...prev, car: cachedCarData }));
         setCarImageUrl(cachedCarData.imageUrl || "");
-        setStatusMessage({ message: `✅ Found ${cachedCarData.make} ${cachedCarData.model} (${cachedCarData.year}) (from cache)`, isError: false });
+        setStatusMessage({ 
+          message: `✅ Found ${cachedCarData.make} ${cachedCarData.model} (${cachedCarData.year}) (from cache)`, 
+          isError: false 
+        });
         setLoadingReg(false);
         return;
       }
 
-      // 2. Call external API (THIS IS THE POTENTIAL SECURITY VULNERABILITY)
+      // 2. Call external API
+      // SECURITY WARNING: API credentials should NOT be in client-side code
+      // TODO: Move this to a Cloud Function or backend API endpoint
       const response = await fetch(
-          `https://www.carregistrationapi.ie/api/reg.asmx/CheckIreland?RegistrationNumber=${trimmedRegNumber}&username=mahmoud2005`
+        `https://www.carregistrationapi.ie/api/reg.asmx/CheckIreland?RegistrationNumber=${trimmedRegNumber}&username=mahmoud2005`
       );
 
-      // Error handling for API response - CORRECTED SCOPE OF errorText
+      // Improved error handling
       if (!response.ok) {
         let errorMessage = `API request failed with status ${response.status}`;
-        let errorText = ''; // Declared here to ensure scope
+        let errorText = "";
 
         try {
-          errorText = await response.text(); // Assign to the already-declared variable
+          errorText = await response.text();
           const errorParser = new DOMParser();
           const errorXmlDoc = errorParser.parseFromString(errorText, "text/xml");
-          const errorDescription = errorXmlDoc.getElementsByTagName("string")[0]?.textContent || errorXmlDoc.getElementsByTagName("Error")[0]?.textContent;
+          const errorDescription = 
+            errorXmlDoc.getElementsByTagName("string")[0]?.textContent || 
+            errorXmlDoc.getElementsByTagName("Error")[0]?.textContent;
+          
           if (errorDescription) {
             errorMessage = `API Error: ${errorDescription}`;
           } else {
-            // If XML parsing fails or specific tags aren't found, use raw text
             errorMessage = `API returned error: ${errorText.substring(0, Math.min(errorText.length, 200))}`;
           }
         } catch (parseError) {
-          // This catch block handles errors *within* the try block, like response.text() failing
-          // or DOMParser issues. errorText might be empty or partially assigned here.
-          errorMessage = `API returned non-XML error or failed to parse: ${response.status}`;
-          // If errorText was successfully fetched but couldn't be parsed
+          errorMessage = `API returned non-OK response: ${response.status}`;
           if (errorText) {
             errorMessage += ` - ${errorText.substring(0, Math.min(errorText.length, 200))}`;
           }
@@ -238,19 +297,38 @@ const InsurancePage = () => {
           await setDoc(carDocRef, carDetailsToCache);
           console.log("Car data cached in Firebase:", trimmedRegNumber);
         } catch (firebaseErr) {
-          // Corrected typo here from firebaseErrErr to firebaseErr
           console.error("Error writing document to Firebase:", firebaseErr);
+          // Continue even if caching fails
         }
 
         setProfile((prev) => ({ ...prev, car: carDetailsToCache }));
-        setStatusMessage({ message: `✅ Found ${make} ${model} (${year}) (API call, now cached)`, isError: false });
+        setStatusMessage({ 
+          message: `✅ Found ${make} ${model} (${year})`, 
+          isError: false 
+        });
       } else {
-        console.warn("Raw XML Response:", text);
-        setStatusMessage({ message: "❌ Vehicle not found for that registration. Check format or try again.", isError: true });
+        console.warn("Incomplete vehicle data. Raw XML Response:", text);
+        setStatusMessage({ 
+          message: "❌ Vehicle not found for that registration. Please check the format and try again.", 
+          isError: true 
+        });
       }
     } catch (err) {
       console.error("Error fetching vehicle data:", err);
-      setStatusMessage({ message: `❌ Error looking up registration number: ${err.message}. Please try again.`, isError: true });
+      
+      // User-friendly error messages
+      let userMessage = "❌ Error looking up registration: ";
+      if (err.message.includes("quota") || err.message.includes("limit")) {
+        userMessage += "Service temporarily unavailable. Please try again later.";
+      } else if (err.message.includes("not found") || err.message.includes("404")) {
+        userMessage += "Vehicle not found for that registration.";
+      } else if (err.message.includes("network") || err.message.includes("fetch")) {
+        userMessage += "Network error. Please check your connection.";
+      } else {
+        userMessage += err.message;
+      }
+      
+      setStatusMessage({ message: userMessage, isError: true });
     } finally {
       setLoadingReg(false);
     }
@@ -258,13 +336,16 @@ const InsurancePage = () => {
 
   const estimateCarValue = (year) => {
     const currentYear = new Date().getFullYear();
-    const depreciation = Math.min((currentYear - year) * ANNUAL_DEPRECIATION_PERCENTAGE, MAX_DEPRECIATION_RATE);
+    const depreciation = Math.min(
+      (currentYear - year) * ANNUAL_DEPRECIATION_PERCENTAGE, 
+      MAX_DEPRECIATION_RATE
+    );
     return Math.round(BASE_CAR_VALUE * (1 - depreciation));
   };
 
   const generateQuotes = (profileData) => {
     const carValue = profileData.car.value || BASE_CAR_VALUE;
-    const valueFactor = (carValue / BASE_CAR_VALUE)*2.5;
+    const valueFactor = (carValue / BASE_CAR_VALUE) * 2.5;
     const ageFactor = profileData.age > 40 ? 1.1 : profileData.age < 25 ? 1.3 : 1;
 
     let experienceFactor = 1;
@@ -276,26 +357,37 @@ const InsurancePage = () => {
     }
 
     const typeFactor = CAR_TYPE_FACTORS[profileData.car.type] || CAR_TYPE_FACTORS.Standard;
-    const mileageFactor = profileData.annualMileage > 15000 ? 1.15 : profileData.annualMileage < 5000 ? 0.9 : 1;
+    const mileageFactor = 
+      profileData.annualMileage > 15000 ? 1.15 : 
+      profileData.annualMileage < 5000 ? 0.9 : 1;
     const ncdFactor = Math.max(1 - profileData.ncdYears * 0.05, 0.7);
 
     return companies.map((company, index) => {
       const companyModifier = 1 + index * 0.03;
-      const quote = Math.round(
-          BASE_QUOTE_AMOUNT * ageFactor * experienceFactor * typeFactor * valueFactor * mileageFactor * ncdFactor * companyModifier * 100
-      ) / 100;
+      const quote =
+        Math.round(
+          BASE_QUOTE_AMOUNT *
+            ageFactor *
+            experienceFactor *
+            typeFactor *
+            valueFactor *
+            mileageFactor *
+            ncdFactor *
+            companyModifier *
+            100
+        ) / 100;
       return { company, quote };
     });
   };
 
+  // Generate quotes when profile changes
   useEffect(() => {
-    // Only generate quotes if a name is present (profile is considered loaded)
-    if (profile.name && profile.age) {
+    if (profile.name && profile.age && !isLoadingProfile) {
       setQuotes(generateQuotes(profile));
     } else {
-      setQuotes([]); // Clear quotes if profile isn't ready
+      setQuotes([]);
     }
-  }, [profile]);
+  }, [profile, isLoadingProfile]);
 
   const getGrade = (yearsOfExperience) => {
     for (const range of EXPERIENCE_YEARS_GRADES) {
@@ -306,165 +398,296 @@ const InsurancePage = () => {
 
   const handleProfileChange = (e) => {
     const { name, value, type } = e.target;
-    setProfile((prev) => ({ ...prev, [name]: type === "number" ? parseInt(value, 10) : value }));
+    setProfile((prev) => ({
+      ...prev,
+      [name]: type === "number" ? parseInt(value, 10) || 0 : value,
+    }));
   };
 
   const downloadCertificate = async (company, quote) => {
-    const doc = new jsPDF("landscape", "mm", "a4");
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+    const pdfDoc = new jsPDF("landscape", "mm", "a4");
+    const pageWidth = pdfDoc.internal.pageSize.getWidth();
+    const pageHeight = pdfDoc.internal.pageSize.getHeight();
     const gold = [255, 215, 0];
     const darkBlue = [15, 28, 46];
     const lightText = [240, 240, 240];
     const certificateId = `TBQC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
 
-    doc.setFillColor(...darkBlue);
-    doc.rect(0, 0, pageWidth, pageHeight, "F");
-    doc.setDrawColor(...gold);
-    doc.setLineWidth(5);
-    doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
+    pdfDoc.setFillColor(...darkBlue);
+    pdfDoc.rect(0, 0, pageWidth, pageHeight, "F");
+    pdfDoc.setDrawColor(...gold);
+    pdfDoc.setLineWidth(5);
+    pdfDoc.rect(10, 10, pageWidth - 20, pageHeight - 20);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(28);
-    doc.setTextColor(...gold);
-    doc.text("TestBuddy Insurance Quote Certificate", pageWidth / 2, 50, { align: "center" });
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.setFontSize(28);
+    pdfDoc.setTextColor(...gold);
+    pdfDoc.text("TestBuddy Insurance Quote Certificate", pageWidth / 2, 50, { align: "center" });
 
-    doc.setFontSize(14);
-    doc.setTextColor(...lightText);
-    doc.text("Issued by TestBuddy Diving & Insurance Services", pageWidth / 2, 65, { align: "center" });
+    pdfDoc.setFontSize(14);
+    pdfDoc.setTextColor(...lightText);
+    pdfDoc.text("Issued by TestBuddy Diving & Insurance Services", pageWidth / 2, 65, { align: "center" });
 
-    doc.setFontSize(16);
-    doc.text("This is to certify a quote for", pageWidth / 2, 85, { align: "center" });
+    pdfDoc.setFontSize(16);
+    pdfDoc.text("This is to certify a quote for", pageWidth / 2, 85, { align: "center" });
 
-    doc.setFont("times", "bolditalic");
-    doc.setFontSize(34);
-    doc.setTextColor(...gold);
-    doc.text(profile.name, pageWidth / 2, 105, { align: "center" });
+    pdfDoc.setFont("times", "bolditalic");
+    pdfDoc.setFontSize(34);
+    pdfDoc.setTextColor(...gold);
+    pdfDoc.text(profile.name, pageWidth / 2, 105, { align: "center" });
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(14);
-    doc.setTextColor(...lightText);
-    doc.text(`Age: ${profile.age}`, pageWidth / 2, 118, { align: "center" });
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.setFontSize(14);
+    pdfDoc.setTextColor(...lightText);
+    pdfDoc.text(`Age: ${profile.age}`, pageWidth / 2, 118, { align: "center" });
 
-    doc.setFontSize(16);
-    doc.text("based on the following details:", pageWidth / 2, 138, { align: "center" });
+    pdfDoc.setFontSize(16);
+    pdfDoc.text("based on the following details:", pageWidth / 2, 138, { align: "center" });
 
-    doc.setFontSize(14);
-    doc.text(`Years of Experience: ${profile.yearsOfExperience}`, pageWidth / 2, 155, { align: "center" });
-    doc.text(`Grade Achieved: ${getGrade(profile.yearsOfExperience)}`, pageWidth / 2, 165, { align: "center" });
+    pdfDoc.setFontSize(14);
+    pdfDoc.text(`Years of Experience: ${profile.yearsOfExperience}`, pageWidth / 2, 155, { align: "center" });
+    pdfDoc.text(`Grade Achieved: ${getGrade(profile.yearsOfExperience)}`, pageWidth / 2, 165, { align: "center" });
 
     const boxY = 175;
-    doc.setDrawColor(...gold);
-    doc.setLineWidth(0.8);
-    doc.rect(60, boxY, pageWidth - 120, 85);
-    doc.setFontSize(15);
-    doc.setTextColor(...gold);
-    doc.text("Insurance Details", pageWidth / 2, boxY + 12, { align: "center" });
+    pdfDoc.setDrawColor(...gold);
+    pdfDoc.setLineWidth(0.8);
+    pdfDoc.rect(60, boxY, pageWidth - 120, 85);
+    pdfDoc.setFontSize(15);
+    pdfDoc.setTextColor(...gold);
+    pdfDoc.text("Insurance Details", pageWidth / 2, boxY + 12, { align: "center" });
 
-    doc.setFontSize(13);
-    doc.setTextColor(...lightText);
-    doc.text(`Certificate ID: ${certificateId}`, pageWidth / 2, boxY + 25, { align: "center" });
-    doc.text(`Company: ${company}`, pageWidth / 2, boxY + 35, { align: "center" });
-    doc.text(`Quote: EUR ${quote}`, pageWidth / 2, boxY + 45, { align: "center" });
+    pdfDoc.setFontSize(13);
+    pdfDoc.setTextColor(...lightText);
+    pdfDoc.text(`Certificate ID: ${certificateId}`, pageWidth / 2, boxY + 25, { align: "center" });
+    pdfDoc.text(`Company: ${company}`, pageWidth / 2, boxY + 35, { align: "center" });
+    pdfDoc.text(`Quote: EUR ${quote}`, pageWidth / 2, boxY + 45, { align: "center" });
+    
     if (profile.car.make) {
-      doc.text(`Car: ${profile.car.make} ${profile.car.model} (${profile.car.year})`, pageWidth / 2, boxY + 55, { align: "center" });
-      doc.text(`Type: ${profile.car.type}, Engine: ${profile.car.engineSize}, Doors: ${profile.car.doors}`, pageWidth / 2, boxY + 65, { align: "center" });
-      doc.text(`Transmission: ${profile.car.transmission}, Fuel: ${profile.car.fuel}`, pageWidth / 2, boxY + 75, { align: "center" });
+      pdfDoc.text(
+        `Car: ${profile.car.make} ${profile.car.model} (${profile.car.year})`,
+        pageWidth / 2,
+        boxY + 55,
+        { align: "center" }
+      );
+      pdfDoc.text(
+        `Type: ${profile.car.type}, Engine: ${profile.car.engineSize}, Doors: ${profile.car.doors}`,
+        pageWidth / 2,
+        boxY + 65,
+        { align: "center" }
+      );
+      pdfDoc.text(
+        `Transmission: ${profile.car.transmission}, Fuel: ${profile.car.fuel}`,
+        pageWidth / 2,
+        boxY + 75,
+        { align: "center" }
+      );
     }
 
     const footerY = pageHeight - 30;
-    doc.setFontSize(12);
-    doc.setTextColor(...lightText);
-    doc.text(`Issued on: ${new Date().toLocaleDateString()}`, 25, footerY - 10);
+    pdfDoc.setFontSize(12);
+    pdfDoc.setTextColor(...lightText);
+    pdfDoc.text(`Issued on: ${new Date().toLocaleDateString()}`, 25, footerY - 10);
 
-    doc.save(`TestBuddy_Quote_Certificate_${profile.name.replace(/\s+/g, "_")}.pdf`);
+    pdfDoc.save(`TestBuddy_Quote_Certificate_${profile.name.replace(/\s+/g, "_")}.pdf`);
   };
 
-  return (
+  // Loading state
+  if (isLoadingProfile) {
+    return (
       <div className="insurance-container">
         <h1>🧜‍♂️ TestBuddy Diving & Car Insurance</h1>
-        {!profile.name ? ( // Check if name is loaded to show loading or content
-            <p className="loading">Fetching profile data...</p>
-        ) : (
-            <>
-              <p className="intro">
-                Welcome back, <strong>{profile.name}</strong>! Compare insurance quotes below 👇
-              </p>
+        <p className="loading">Loading your profile...</p>
+      </div>
+    );
+  }
 
-              {statusMessage.message && (
-                  <div className={`status-message ${statusMessage.isError ? "error" : "success"}`}>
-                    {statusMessage.message}
-                  </div>
-              )}
+  // Not authenticated state
+  if (!currentUser) {
+    return (
+      <div className="insurance-container">
+        <h1>🧜‍♂️ TestBuddy Diving & Car Insurance</h1>
+        <div className="status-message error">
+          ⚠️ Please sign in to access insurance quotes.
+        </div>
+      </div>
+    );
+  }
 
-              <div className="profile-summary card">
-                <h3>Your Profile</h3>
-                <div className="profile-details-grid">
-                  <p><strong>Name:</strong> {profile.name}</p>
-                  <div>
-                    <label htmlFor="age"><strong>Age:</strong></label>
-                    <input id="age" type="number" name="age" value={profile.age} onChange={handleProfileChange} min="18" max="99" className="small-input" />
-                  </div>
-                  <div>
-                    <label htmlFor="yearsOfExperience"><strong>Years of Experience:</strong></label>
-                    <input id="yearsOfExperience" type="number" name="yearsOfExperience" value={profile.yearsOfExperience} onChange={handleProfileChange} min="0" max="50" className="small-input" />
-                    <span className="grade-badge">Grade: {getGrade(profile.yearsOfExperience)}</span>
-                  </div>
-                  <div>
-                    <label htmlFor="annualMileage"><strong>Annual Mileage:</strong></label>
-                    <input id="annualMileage" type="number" name="annualMileage" value={profile.annualMileage} onChange={handleProfileChange} min="0" step="1000" className="small-input" />
-                  </div>
-                  <div>
-                    <label htmlFor="ncdYears"><strong>No Claims Years:</strong></label>
-                    <input id="ncdYears" type="number" name="ncdYears" value={profile.ncdYears} onChange={handleProfileChange} min="0" max="15" className="small-input" />
-                  </div>
-                </div>
+  return (
+    <div className="insurance-container">
+      <h1>🧜‍♂️ TestBuddy Diving & Car Insurance</h1>
+      <p className="intro">
+        Welcome back, <strong>{profile.name}</strong>! Compare insurance quotes below 👇
+      </p>
 
-                {profile.car.make && (
-                    <>
-                      <hr />
-                      <h3>Your Car Details</h3>
-                      {carImageUrl && <div className="car-image-container"><img src={carImageUrl} alt={`${profile.car.make} ${profile.car.model}`} className="car-image" /></div>}
-                      <p><strong>Make:</strong> {profile.car.make}</p>
-                      <p><strong>Model:</strong> {profile.car.model}</p>
-                      <p><strong>Year:</strong> {profile.car.year}</p>
-                      <p><strong>Type:</strong> {profile.car.type}</p>
-                      <p><strong>Value:</strong> €{profile.car.value.toLocaleString()}</p>
-                      <p><strong>Engine Size:</strong> {profile.car.engineSize}</p>
-                      <p><strong>Doors:</strong> {profile.car.doors}</p>
-                      <p><strong>Transmission:</strong> {profile.car.transmission}</p>
-                      <p><strong>Fuel Type:</strong> {profile.car.fuel}</p>
-                    </>
-                )}
+      {statusMessage.message && (
+        <div className={`status-message ${statusMessage.isError ? "error" : "success"}`}>
+          {statusMessage.message}
+        </div>
+      )}
+
+      <div className="profile-summary card">
+        <h3>Your Profile</h3>
+        <div className="profile-details-grid">
+          <p>
+            <strong>Name:</strong> {profile.name}
+          </p>
+          <div>
+            <label htmlFor="age">
+              <strong>Age:</strong>
+            </label>
+            <input
+              id="age"
+              type="number"
+              name="age"
+              value={profile.age}
+              onChange={handleProfileChange}
+              min="18"
+              max="99"
+              className="small-input"
+            />
+          </div>
+          <div>
+            <label htmlFor="yearsOfExperience">
+              <strong>Years of Experience:</strong>
+            </label>
+            <input
+              id="yearsOfExperience"
+              type="number"
+              name="yearsOfExperience"
+              value={profile.yearsOfExperience}
+              onChange={handleProfileChange}
+              min="0"
+              max="50"
+              className="small-input"
+            />
+            <span className="grade-badge">Grade: {getGrade(profile.yearsOfExperience)}</span>
+          </div>
+          <div>
+            <label htmlFor="annualMileage">
+              <strong>Annual Mileage:</strong>
+            </label>
+            <input
+              id="annualMileage"
+              type="number"
+              name="annualMileage"
+              value={profile.annualMileage}
+              onChange={handleProfileChange}
+              min="0"
+              step="1000"
+              className="small-input"
+            />
+          </div>
+          <div>
+            <label htmlFor="ncdYears">
+              <strong>No Claims Years:</strong>
+            </label>
+            <input
+              id="ncdYears"
+              type="number"
+              name="ncdYears"
+              value={profile.ncdYears}
+              onChange={handleProfileChange}
+              min="0"
+              max="15"
+              className="small-input"
+            />
+          </div>
+        </div>
+
+        {profile.car.make && (
+          <>
+            <hr />
+            <h3>Your Car Details</h3>
+            {carImageUrl && (
+              <div className="car-image-container">
+                <img
+                  src={carImageUrl}
+                  alt={`${profile.car.make} ${profile.car.model}`}
+                  className="car-image"
+                />
               </div>
-
-              <div className="reg-section card">
-                <h3>🚗 Enter Registration Number</h3>
-                <div className="reg-input-group">
-                  <input type="text" value={regNumber} onChange={(e) => setRegNumber(e.target.value.toUpperCase())} placeholder="e.g., 23D12345" className="reg-input" />
-                  <button onClick={handleLookupRegistration} disabled={loadingReg} className="lookup-button">{loadingReg ? "Looking up..." : "Lookup Car"}</button>
-                </div>
-              </div>
-
-              <div className="quote-cards-container">
-                <h2>💰 Your Insurance Quotes</h2>
-                <div className="quote-cards">
-                  {quotes.length > 0 ? (
-                      quotes.map(({ company, quote }) => (
-                          <div key={company} className="quote-card card">
-                            <h3>{company}</h3>
-                            <p className="quote-price"><strong>EUR {quote.toLocaleString()}</strong></p>
-                            <button onClick={() => downloadCertificate(company, quote)} className="certificate-button">Download Certificate</button>
-                          </div>
-                      ))
-                  ) : (
-                      <p>No quotes available.</p>
-                  )}
-                </div>
-              </div>
-            </>
+            )}
+            <p>
+              <strong>Make:</strong> {profile.car.make}
+            </p>
+            <p>
+              <strong>Model:</strong> {profile.car.model}
+            </p>
+            <p>
+              <strong>Year:</strong> {profile.car.year}
+            </p>
+            <p>
+              <strong>Type:</strong> {profile.car.type}
+            </p>
+            <p>
+              <strong>Value:</strong> €{profile.car.value.toLocaleString()}
+            </p>
+            <p>
+              <strong>Engine Size:</strong> {profile.car.engineSize}
+            </p>
+            <p>
+              <strong>Doors:</strong> {profile.car.doors}
+            </p>
+            <p>
+              <strong>Transmission:</strong> {profile.car.transmission}
+            </p>
+            <p>
+              <strong>Fuel Type:</strong> {profile.car.fuel}
+            </p>
+          </>
         )}
       </div>
+
+      <div className="reg-section card">
+        <h3>🚗 Enter Registration Number</h3>
+        <div className="reg-input-group">
+          <input
+            type="text"
+            value={regNumber}
+            onChange={(e) => setRegNumber(e.target.value.toUpperCase())}
+            placeholder="e.g., 23D12345"
+            className="reg-input"
+            onKeyPress={(e) => {
+              if (e.key === "Enter") {
+                handleLookupRegistration();
+              }
+            }}
+          />
+          <button
+            onClick={handleLookupRegistration}
+            disabled={loadingReg}
+            className="lookup-button"
+          >
+            {loadingReg ? "Looking up..." : "Lookup Car"}
+          </button>
+        </div>
+      </div>
+
+      <div className="quote-cards-container">
+        <h2>💰 Your Insurance Quotes</h2>
+        <div className="quote-cards">
+          {quotes.length > 0 ? (
+            quotes.map(({ company, quote }) => (
+              <div key={company} className="quote-card card">
+                <h3>{company}</h3>
+                <p className="quote-price">
+                  <strong>EUR {quote.toLocaleString()}</strong>
+                </p>
+                <button
+                  onClick={() => downloadCertificate(company, quote)}
+                  className="certificate-button"
+                >
+                  Download Certificate
+                </button>
+              </div>
+            ))
+          ) : (
+            <p>Add your vehicle details to see quotes.</p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
