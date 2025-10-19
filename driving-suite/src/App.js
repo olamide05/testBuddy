@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
+import { 
+  AppBar, Toolbar, Typography, Box, CssBaseline, Drawer, List, ListItemButton, 
+  ListItemIcon, ListItemText, IconButton, Avatar, Tooltip, Divider 
+} from '@mui/material';
+import { 
+  Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, Dashboard as DashboardIcon, DirectionsCar, 
+  School, MonetizationOn, Assignment, AccountCircle, Login 
+} from '@mui/icons-material';
 
-// Import layout components
-import { Header, Footer } from './headerfooter';
-
-import MainPage from './pages/dashboard';
+// --- Page Imports (CRITICAL: Make sure these paths are correct) ---
+import Dashboard from './pages/dashboard';
 import InsurancePage from './pages/insurance';
 import AdvertisementPage from './pages/instructors';
 import LoginPage from './pages/login';
@@ -11,90 +17,139 @@ import ProfilePage from './pages/profile';
 import BookingPage from './pages/booking';
 import TheorySimulatorPage from './pages/simulator-theory';
 
-// --- Color Palette ---
-const colors = {
-  primary: '#0056b3',
-  white: '#FFFFFF',
-  darkText: '#343a40',
-  background: '#f8f9fa',
-};
+// --- Configuration ---
+const openDrawerWidth = 260;
+const closedDrawerWidth = 72; // Width when collapsed
+const headerHeight = 64;
 
-// --- Sidebar Component ---
-function Sidebar({ currentPage, setCurrentPage }) {
-  const menuItems = [
-    { key: 'main', label: 'Dashboard' },
-    { key: 'booking', label: 'Find a Test' },
-    { key: 'theory', label: 'Theory & Simulator' },
-    { key: 'insurance', label: 'Insurance Deals' },
-    { key: 'advertisement', label: 'Instructors' },
-    { key: 'profile', label: 'My Profile' },
-    { key: 'login', label: 'Login / Register' },
-  ];
+// --- Menu Configuration with Components ---
+const menuItems = [
+  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, component: <Dashboard /> },
+  { key: 'booking', label: 'Find a Test', icon: <DirectionsCar />, component: <BookingPage /> },
+  { key: 'theory', label: 'Theory & Simulator', icon: <School />, component: <TheorySimulatorPage /> },
+  { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage /> },
+  { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage /> },
+];
 
-  return (
-    <aside style={{
-      width: '240px',
-      backgroundColor: colors.white,
-      borderRight: '1px solid #dee2e6',
-      height: '100%',
-      paddingTop: '20px',
-      boxShadow: '2px 0 5px rgba(0,0,0,0.05)',
-    }}>
-      <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
-        {menuItems.map(item => (
-          <li key={item.key}>
-            <button
-              onClick={() => setCurrentPage(item.key)}
-              style={{
-                width: '100%',
-                backgroundColor: currentPage === item.key ? colors.primary : 'transparent',
-                color: currentPage === item.key ? colors.white : colors.darkText,
-                border: 'none',
-                padding: '18px 25px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                fontWeight: currentPage === item.key ? '600' : 'normal',
-                fontSize: '1rem',
-              }}
-            >
-              {item.label}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </aside>
-  );
-}
+const userMenuItems = [
+  { key: 'profile', label: 'My Profile', icon: <AccountCircle />, component: <ProfilePage /> },
+  { key: 'login', label: 'Login / Register', icon: <Login />, component: <LoginPage /> },
+];
 
-// --- Main App Component ---
-function App() {
-  const [currentPage, setCurrentPage] = useState('main');
+const allPages = [...menuItems, ...userMenuItems];
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'main': return <MainPage />;
-      case 'insurance': return <InsurancePage />;
-      case 'advertisement': return <AdvertisementPage />;
-      case 'login': return <LoginPage />;
-      case 'profile': return <ProfilePage />;
-      case 'booking': return <BookingPage />;
-      case 'theory': return <TheorySimulatorPage />;
-      default: return <MainPage />;
-    }
+// --- Main App Layout Component ---
+export default function AppLayout() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [currentPageKey, setCurrentPageKey] = useState('dashboard');
+  const [user, setUser] = useState({ loggedIn: true, name: 'Naza' });
+
+  const handleSidebarToggle = () => {
+    setIsSidebarOpen(!isSidebarOpen);
   };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
-      <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-        <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-        <main style={{ flexGrow: 1, overflowY: 'auto', backgroundColor: colors.background }}>
-          {renderPage()}
-        </main>
-      </div>
-      <Footer />
+  
+  const drawerContent = (
+    <div>
+      <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: [2], height: `${headerHeight}px` }}>
+        {isSidebarOpen && (
+          <Typography variant="h5" noWrap sx={{ fontWeight: 'bold' }}>
+            DriveNow
+          </Typography>
+        )}
+        <IconButton onClick={handleSidebarToggle}>
+          {isSidebarOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+        </IconButton>
+      </Toolbar>
+      <Divider />
+      <List>
+        {menuItems.map(({ key, label, icon }) => (
+          <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={key}>
+            <ListItemButton sx={{ py: 1.5 }} onClick={() => setCurrentPageKey(key)} selected={currentPageKey === key}>
+              <ListItemIcon>{icon}</ListItemIcon>
+              {isSidebarOpen && <ListItemText primary={label} />}
+            </ListItemButton>
+          </Tooltip>
+        ))}
+      </List>
+      <Divider />
+      <List>
+        {userMenuItems.map(({ key, label, icon }) => (
+          <Tooltip title={isSidebarOpen ? '' : label} placement="right" key={key}>
+            <ListItemButton sx={{ py: 1.5 }} onClick={() => setCurrentPageKey(key)} selected={currentPageKey === key}>
+              <ListItemIcon>{icon}</ListItemIcon>
+              {isSidebarOpen && <ListItemText primary={label} />}
+            </ListItemButton>
+          </Tooltip>
+        ))}
+      </List>
     </div>
   );
-}
 
-export default App;
+  const currentWidth = isSidebarOpen ? openDrawerWidth : closedDrawerWidth;
+  const currentPage = allPages.find(p => p.key === currentPageKey);
+
+  return (
+    <Box sx={{ display: 'flex' }}>
+      <CssBaseline />
+      
+      {/* Header / AppBar */}
+      <AppBar
+        position="fixed"
+        sx={{
+          width: { sm: `calc(100% - ${currentWidth}px)` },
+          ml: { sm: `${currentWidth}px` },
+          transition: (theme) => theme.transitions.create(['margin', 'width'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+        }}
+      >
+        <Toolbar sx={{ justifyContent: 'space-between', height: `${headerHeight}px` }}>
+          <Typography variant="h6" noWrap>
+            {currentPage?.label || 'Dashboard'}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Avatar sx={{ bgcolor: 'secondary.main' }}>{user.name ? user.name.charAt(0) : 'G'}</Avatar>
+            <Typography sx={{ display: { xs: 'none', sm: 'block' } }}>{user.name || 'Guest'}</Typography>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      {/* Sidebar / Drawer */}
+      <Drawer
+        variant="permanent"
+        open={isSidebarOpen}
+        sx={{
+          width: currentWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: currentWidth,
+            boxSizing: 'border-box',
+            transition: (theme) => theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+            overflowX: 'hidden',
+          },
+          display: { xs: 'none', sm: 'block' } // Only show permanent drawer on desktop
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+
+      {/* Main Content Area */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          bgcolor: '#f4f6f8',
+          minHeight: '100vh',
+          mt: `${headerHeight}px`,
+        }}
+      >
+        {currentPage?.component || <Dashboard />}
+      </Box>
+    </Box>
+  );
+}
