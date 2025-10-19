@@ -1,0 +1,36 @@
+# .github/workflows/docker-gcr.yml
+name: Build and Push Docker to GCR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Authenticate to GCP (personal account)
+        run: |
+          echo '${{ secrets.GCP_PERSONAL_KEY }}' > $HOME/gcp-key.json
+          gcloud auth application-default activate-service-account --key-file=$HOME/gcp-key.json
+          gcloud auth configure-docker
+
+      - name: Build Docker image
+        run: |
+          # Move to backend directory where Dockerfile is
+          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/driving-test-ai:${{ github.sha }} ./backend
+
+      - name: Push Docker image
+        run: |
+          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/driving-test-ai:${{ github.sha }}
