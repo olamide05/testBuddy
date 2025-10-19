@@ -17,6 +17,7 @@ import ProfilePage from './pages/profile';
 import BookingPage from './pages/booking';
 import TheorySimulatorPage from './pages/simulator-theory';
 import SwapMarketPage from './pages/swap-market';
+import LiveVideo from './pages/live-video';
 
 // --- Configuration ---
 const openDrawerWidth = 260;
@@ -31,6 +32,7 @@ const menuItems = [
   { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage /> }, // ← ADDED THIS
   { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage /> },
   { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage /> },
+  { key: 'live-video', label: 'Video', icon: <Assignment />, component: <LiveVideo/> },
 ];
 
 const userMenuItems = [
