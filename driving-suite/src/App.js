@@ -18,7 +18,8 @@ import ProfilePage from './pages/profile';
 import BookingPage from './pages/booking';
 import TheorySimulatorPage from './pages/simulator-theory';
 import SwapMarketPage from './pages/swap-market';
-import LandingPage from './pages/landing';  // ← NEW: Create this page
+import LandingPage from './pages/landing';
+import LiveVideo from './pages/live-video';
 
 // --- Configuration ---
 const openDrawerWidth = 260;
@@ -33,6 +34,7 @@ const menuItems = [
   { key: 'swap', label: 'Test Swap Market', icon: <SwapHoriz />, component: <SwapMarketPage />, requiresAuth: true },
   { key: 'insurance', label: 'Insurance Deals', icon: <MonetizationOn />, component: <InsurancePage />, requiresAuth: true },
   { key: 'instructors', label: 'Instructors', icon: <Assignment />, component: <AdvertisementPage />, requiresAuth: true },
+  { key: 'live-video', label: 'Live Video', icon: <Assignment />, component: <LiveVideo />, requiresAuth: true },
   { key: 'profile', label: 'My Profile', icon: <AccountCircle />, component: <ProfilePage />, requiresAuth: true },
 ];
 
@@ -46,7 +48,7 @@ const publicPages = [
 export default function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [currentPageKey, setCurrentPageKey] = useState('landing');
-  const [user, setUser] = useState({ loggedIn: false, name: '' });  // ← Set to false by default
+  const [user, setUser] = useState({ loggedIn: false, name: '' });
 
   const handleSidebarToggle = () => {
     setIsSidebarOpen(!isSidebarOpen);

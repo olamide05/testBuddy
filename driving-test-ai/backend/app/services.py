@@ -1,3 +1,9 @@
+import time
+from typing import List, Dict
+
+from fastapi import HTTPException
+import requests
+
 from app.config import settings
 from google import genai
 from google.genai import types
@@ -169,3 +175,126 @@ def get_next_question(state: dict) -> dict:
 
     state["current_question"] = q
     return state
+
+def analyze_driving_performance(video_url: str, actions: List[Dict], video_type: str,
+                                potential_hazards: List[str]) -> dict:
+    """
+    Analyze driving performance based on video and user's observation actions.
+
+    Args:
+        video_url: URL to the driving video
+        actions: List of user actions with timestamps
+            [{"type": "EYE_LEFT", "timestamp": 2.5, "videoTime": 2.5}, ...]
+        video_type: Type of scenario (e.g., "right-turn", "lane-change")
+        potential_hazards: List of hazards present in the video
+
+    Returns:
+        dict with score, feedback, and detailed analysis
+    """
+
+    # Format actions for Gemini
+    actions_text = "\n".join([
+        f"- {action['type']} at {action['timestamp']:.2f}s (video time: {action['videoTime']:.2f}s)"
+        for action in actions
+    ])
+
+    # Count action types
+    action_breakdown = {
+        "EYE_LEFT": len([a for a in actions if a["type"] == "EYE_LEFT"]),
+        "EYE_RIGHT": len([a for a in actions if a["type"] == "EYE_RIGHT"]),
+        "HEAD_LEFT": len([a for a in actions if a["type"] == "HEAD_LEFT"]),
+        "HEAD_RIGHT": len([a for a in actions if a["type"] == "HEAD_RIGHT"])
+    }
+
+    prompt = f"""You are an experienced Irish driving instructor analyzing a learner's hazard perception performance.
+
+SCENARIO DETAILS:
+- Type: {video_type}
+- Potential Hazards: {', '.join(potential_hazards)}
+- Video URL: {video_url}
+
+USER'S OBSERVATION ACTIONS:
+{actions_text}
+
+ACTION SUMMARY:
+- Mirror checks (left): {action_breakdown['EYE_LEFT']}
+- Mirror checks (right): {action_breakdown['EYE_RIGHT']}
+- Blind spot checks (left): {action_breakdown['HEAD_LEFT']}
+- Blind spot checks (right): {action_breakdown['HEAD_RIGHT']}
+- Total observations: {len(actions)}
+
+TASK:
+Analyze the driving scenario in the video and evaluate whether the learner performed appropriate observation checks at the right times. Consider:
+
+1. Were mirror checks performed before the maneuver?
+2. Were blind spot checks performed when necessary?
+3. Were observations made at critical moments (e.g., before turning, changing lanes)?
+4. Were there missed observations that could be dangerous?
+5. Was observation frequency appropriate?
+
+Return ONLY this JSON (no markdown):
+{{
+    "score": 85,
+    "grade": "Good",
+    "feedback": "Overall performance summary in 2-3 sentences",
+    "strengths": ["What they did well", "Another strength"],
+    "improvements": ["What needs improvement", "Another area to work on"],
+    "critical_misses": ["Any dangerous missed observations"],
+    "timing_analysis": "Brief analysis of whether observations were timely",
+    "detailed_breakdown": {{
+        "mirror_checks": "Assessment of mirror usage",
+        "blind_spot_checks": "Assessment of blind spot checks",
+        "observation_timing": "Assessment of when observations were made"
+    }}
+}}
+
+Score range: 0-100
+- 90-100: Excellent - Professional level observation
+- 75-89: Good - Safe and attentive
+- 60-74: Adequate - Passing but needs improvement
+- 40-59: Poor - Significant gaps in observation
+- 0-39: Dangerous - Critical observation failures"""
+
+    try:
+        # Upload video to Gemini for analysis
+        with open("/tmp/video.mp4", "wb") as f:
+            f.write(requests.get(video_url).content)
+
+        video_file = client.files.upload(file="/tmp/video.mp4", config={"display_name": "video.mp4", "mime_type": "video/mp4"})
+
+        while video_file.state.name == "PROCESSING":
+            print(f"Current state: {video_file.state.name}. Waiting...")
+            time.sleep(10)
+            video_file = client.files.get(name=video_file.name)
+
+        if video_file.state.name == "FAILED":
+            raise ValueError(f"Video processing failed: {video_file.state}")
+
+        print(f"File is now ACTIVE. State: {video_file.state.name}")
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=[prompt, video_file]
+        )
+
+        # Parse response
+        text = response.text.strip()
+        if text.startswith("```json"):
+            text = text[7:-3].strip()
+        elif text.startswith("```"):
+            text = text[3:-3].strip()
+
+        data = json.loads(text)
+
+        # Add metadata
+        data["analysis_id"] = str(uuid.uuid4())
+        data["video_url"] = video_url
+        data["video_type"] = video_type
+        data["total_actions"] = len(actions)
+        data["action_breakdown"] = action_breakdown
+
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze video: {str(e)}")
+
