@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Circle, Autocomplete } from '@react-google-maps/api';
 import {
   Box, Card, CardContent, Typography, Grid, Chip, Button, TextField,
@@ -10,6 +10,8 @@ import {
   Navigation, CheckCircle, Warning, Info, Search, MyLocation
 } from '@mui/icons-material';
 import './booking.css';
+
+
 
 const CENTRES_DATA = [
   {
@@ -134,10 +136,21 @@ export default function TestCentresPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [autocomplete, setAutocomplete] = useState(null);
   const [searchInput, setSearchInput] = useState('');
+    // --- Booking state ---
+  const [bookedTest, setBookedTest] = useState(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  // --- Load saved booking when page loads ---
+  useEffect(() => {
+    const savedBooking = localStorage.getItem('bookedTest');
+    if (savedBooking) {
+      setBookedTest(JSON.parse(savedBooking));
+    }
+  }, []);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+    googleMapsApiKey: 'AIzaSyCQ30DmZrIFUO1TtdJs3h1xrnSP11uPMss',
     libraries // Add this!
   });
 
@@ -244,11 +257,33 @@ export default function TestCentresPage() {
     return 'error';
   };
 
-  const CentreCard = ({ centre }) => {
+  const handleBookTest = (centre) => {
+  const booking = {
+    centreId: centre.id,
+    centreName: centre.name,
+    bookedAt: new Date().toISOString(),
+  };
+  localStorage.setItem('bookedTest', JSON.stringify(booking));
+  setBookedTest(booking);
+  setBookingSuccess(true);
+  };
+
+  const CentreCard = ({
+     centre,
+     userLocation, 
+     calculateDistance, 
+     setSelectedCentre, 
+     map, 
+     setActiveTab, 
+     bookedTest,
+     handleBookTest
+    
+    }) => {
     const distance = userLocation 
       ? calculateDistance(userLocation.lat, userLocation.lng, centre.lat, centre.lng)
       : null;
 
+    const isBooked = bookedTest?.centreId === centre.id;
     return (
       <Card sx={{ mb: 2, '&:hover': { boxShadow: 6 } }}>
         <CardContent>
@@ -308,6 +343,7 @@ export default function TestCentresPage() {
             <Button
               variant="contained"
               size="small"
+              color={bookedTest?.centreId === centre.id ? 'success' : 'primary'}
               onClick={() => {
                 setSelectedCentre(centre);
                 if (map) {
@@ -339,6 +375,25 @@ export default function TestCentresPage() {
             >
               Directions
             </Button>
+
+           <Button
+             variant="contained"
+             size="small"
+             color={isBooked ? 'success' : 'inherit'} // 🟢 Use grey color when other tests are blocked
+             startIcon={<CheckCircle />}
+             disabled={
+              bookedTest && bookedTest.centreId !== centre.id // 🟢 disable if another test is booked
+  }
+  onClick={() => handleBookTest(centre)}
+>
+  {isBooked
+    ? 'Already Booked'
+    : bookedTest
+    ? 'Booking Locked'
+    : 'Book Test'}
+</Button>
+
+
           </Box>
         </CardContent>
       </Card>
@@ -424,7 +479,16 @@ export default function TestCentresPage() {
                     position={{ lat: selectedCentre.lat, lng: selectedCentre.lng }}
                     onCloseClick={() => setSelectedCentre(null)}
                   >
-                    <Box sx={{ p: 1, maxWidth: 250, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    <Box 
+                      sx={{ 
+                        p: 1,
+                        maxWidth: 250,
+                        wordBreak: 'break-word', 
+                        overflowWrap: 'anywhere',
+                        pointerEvents: 'auto',
+                        zIndex: 9999,
+                         }}
+                    >
                       <Typography variant="h6" gutterBottom>{selectedCentre.name}</Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         {selectedCentre.address}
@@ -433,6 +497,18 @@ export default function TestCentresPage() {
                       <Typography variant="body2"><strong>Wait:</strong> {selectedCentre.waitWeeks} weeks</Typography>
                       <Typography variant="body2"><strong>Pass Rate:</strong> {selectedCentre.passRate}%</Typography>
                       <Typography variant="body2"><strong>Phone:</strong> {selectedCentre.phone}</Typography>
+
+                      <Button
+                       variant="contained"
+                       color={bookedTest?.centreId === selectedCentre.id ? 'success' : 'primary'}
+                       size="small"
+                       sx={{ mt:1 }}
+                       startIcon={<CheckCircle />}
+                       onClick={() => handleBookTest(selectedCentre)}
+                       disabled={bookedTest?.centreId === selectedCentre.id}
+                      >
+                      {bookedTest?.centreId === selectedCentre.id ? 'Already Booked' : 'Book Test'}
+                      </Button>
                     </Box>
                   </InfoWindow>
                 )}
@@ -625,7 +701,16 @@ export default function TestCentresPage() {
           </Grid>
 
           {getSortedCentres().map((centre) => (
-            <CentreCard key={centre.id} centre={centre} />
+            <CentreCard 
+            key={centre.id} 
+            centre={centre}
+            userLocation={userLocation}
+            calculateDistance={calculateDistance}
+            setSelectedCentre={setSelectedCentre}
+            map={map}
+            setActiveTab={setActiveTab}
+            bookedTest={bookedTest}
+             />
           ))}
         </Box>
       )}
@@ -640,7 +725,15 @@ export default function TestCentresPage() {
           <Grid container spacing={2}>
             {CENTRES_DATA.slice(0, 3).map((centre) => (
               <Grid item xs={12} md={4} key={centre.id}>
-                <CentreCard centre={centre} />
+                <CentreCard
+                  centre={centre}
+                  userLocation={userLocation}
+                  calculateDistance={calculateDistance}
+                  setSelectedCentre={setSelectedCentre}
+                  map={map}
+                  setActiveTab={setActiveTab}
+                  bookedTest={bookedTest}
+                  />
               </Grid>
             ))}
           </Grid>
