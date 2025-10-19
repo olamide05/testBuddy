@@ -13,6 +13,7 @@ import {
   Divider,
   Alert,
   Snackbar,
+  Chip,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
@@ -42,6 +43,10 @@ export default function BecomeInstructorPage() {
     } else {
       setFormData({ ...formData, [name]: value });
     }
+  };
+
+  const handleRemoveFile = (field) => {
+    setFormData({ ...formData, [field]: null });
   };
 
   const validate = () => {
@@ -127,6 +132,7 @@ export default function BecomeInstructorPage() {
         <CardContent>
           <form onSubmit={handleSubmit}>
             <Grid container spacing={3}>
+              {/* --- Basic Info --- */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -164,6 +170,7 @@ export default function BecomeInstructorPage() {
                 />
               </Grid>
 
+              {/* --- Document Upload Section --- */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }} />
                 <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -171,6 +178,7 @@ export default function BecomeInstructorPage() {
                 </Typography>
               </Grid>
 
+              {/* Driving Licence Upload */}
               <Grid item xs={12}>
                 <Button
                   variant="outlined"
@@ -187,11 +195,25 @@ export default function BecomeInstructorPage() {
                     accept=".jpg,.jpeg,.png,.pdf"
                   />
                 </Button>
+
+                {/* ✅ Show uploaded file chip */}
+                {formData.drivingLicence && formData.drivingLicence[0] && (
+                  <Chip
+                    label={`${formData.drivingLicence[0].name} uploaded`}
+                    color="success"
+                    variant="outlined"
+                    size="small"
+                    onDelete={() => handleRemoveFile('drivingLicence')}
+                    sx={{ mt: 1 }}
+                  />
+                )}
+
                 {errors.drivingLicence && (
                   <Typography color="error" variant="body2">{errors.drivingLicence}</Typography>
                 )}
               </Grid>
 
+              {/* RSA Certificate Upload */}
               <Grid item xs={12}>
                 <Button
                   variant="outlined"
@@ -208,11 +230,25 @@ export default function BecomeInstructorPage() {
                     accept=".jpg,.jpeg,.png,.pdf"
                   />
                 </Button>
+
+                {/* ✅ Show uploaded file chip */}
+                {formData.rsaCertificate && formData.rsaCertificate[0] && (
+                  <Chip
+                    label={`${formData.rsaCertificate[0].name} uploaded`}
+                    color="success"
+                    variant="outlined"
+                    size="small"
+                    onDelete={() => handleRemoveFile('rsaCertificate')}
+                    sx={{ mt: 1 }}
+                  />
+                )}
+
                 {errors.rsaCertificate && (
                   <Typography color="error" variant="body2">{errors.rsaCertificate}</Typography>
                 )}
               </Grid>
 
+              {/* Driving Record Upload (Optional) */}
               <Grid item xs={12}>
                 <Button
                   variant="outlined"
@@ -229,11 +265,25 @@ export default function BecomeInstructorPage() {
                     accept=".jpg,.jpeg,.png,.pdf"
                   />
                 </Button>
+
+                {/* ✅ Show uploaded file chip */}
+                {formData.drivingRecord && formData.drivingRecord[0] && (
+                  <Chip
+                    label={`${formData.drivingRecord[0].name} uploaded`}
+                    color="success"
+                    variant="outlined"
+                    size="small"
+                    onDelete={() => handleRemoveFile('drivingRecord')}
+                    sx={{ mt: 1 }}
+                  />
+                )}
+
                 {errors.drivingRecord && (
                   <Typography color="error" variant="body2">{errors.drivingRecord}</Typography>
                 )}
               </Grid>
 
+              {/* Declaration */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }} />
                 <FormControlLabel
@@ -251,6 +301,7 @@ export default function BecomeInstructorPage() {
                 )}
               </Grid>
 
+              {/* Submit */}
               <Grid item xs={12}>
                 <Button type="submit" variant="contained" fullWidth size="large">
                   Submit Application
@@ -261,6 +312,7 @@ export default function BecomeInstructorPage() {
         </CardContent>
       </Card>
 
+      {/* Snackbar Confirmation */}
       <Snackbar
         open={successOpen}
         autoHideDuration={4000}
