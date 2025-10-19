@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Video, Eye, Pause, Play, RotateCcw, Download } from 'lucide-react';
+import {analyzeVideos} from "../services/drivingTestAPI";
 
 export default function ProfilePage() {
     const [isRecording, setIsRecording] = useState(true);
@@ -12,7 +13,6 @@ export default function ProfilePage() {
 
     const videoRef = useRef(null);
     const webcamRef = useRef(null);
-    const canvasRef = useRef(null);
     const faceLandmarkerRef = useRef(null);
     const animationFrameRef = useRef(null);
     const startTimeRef = useRef(null);
@@ -98,9 +98,7 @@ export default function ProfilePage() {
             return;
         }
 
-
         try {
-
             const video = webcamRef.current;
             if (!video.videoWidth || !video.videoHeight ||
                 video.readyState < video.HAVE_CURRENT_DATA) {
@@ -140,7 +138,7 @@ export default function ProfilePage() {
                 // Thresholds for detection
                 const HEAD_THRESHOLD = 0.15;
                 const EYE_THRESHOLD = 0.03;
-                const DEBOUNCE_TIME = 0.3; // seconds
+                const DEBOUNCE_TIME = 0.5; // seconds
 
                 const currentState = {
                     eyeLeft: eyeGaze < -EYE_THRESHOLD,
@@ -185,29 +183,6 @@ export default function ProfilePage() {
                         lastDetectionRef.current.headRight = false;
                     }
                 }
-
-                // Draw webcam feed with landmarks overlay
-                if (canvasRef.current) {
-                    const ctx = canvasRef.current.getContext('2d');
-                    canvasRef.current.width = webcamRef.current.videoWidth;
-                    canvasRef.current.height = webcamRef.current.videoHeight;
-
-                    ctx.drawImage(webcamRef.current, 0, 0);
-
-                    // Draw detection indicators
-                    ctx.font = '16px monospace';
-                    ctx.fillStyle = currentState.eyeLeft ? '#22c55e' : '#ef4444';
-                    ctx.fillText('EYE_LEFT', 10, 30);
-
-                    ctx.fillStyle = currentState.eyeRight ? '#22c55e' : '#ef4444';
-                    ctx.fillText('EYE_RIGHT', 10, 60);
-
-                    ctx.fillStyle = currentState.headLeft ? '#22c55e' : '#ef4444';
-                    ctx.fillText('HEAD_LEFT', 10, 90);
-
-                    ctx.fillStyle = currentState.headRight ? '#22c55e' : '#ef4444';
-                    ctx.fillText('HEAD_RIGHT', 10, 120);
-                }
             }
         } catch (err) {
             console.error('Detection error:', err);
@@ -223,7 +198,6 @@ export default function ProfilePage() {
         };
 
         setActions(prev => [...prev, action]);
-        console.log('Action recorded:', action);
     };
 
     // Animation loop for detection
@@ -271,6 +245,20 @@ export default function ProfilePage() {
             }
         }
     };
+
+    const onEnd = () => {
+        stopSimulation();
+        analyzeVideos({
+            videoUrl: currentVideo.videoFile,
+            actions: actions,
+            videoType: currentVideo.type,
+            potentialHazards: currentVideo.potentialHazards,
+        })
+            .then(results => {
+                //TODO - fix this
+                console.log(results)
+            })
+    }
 
     // Stop simulation
     const stopSimulation = () => {
@@ -385,66 +373,92 @@ export default function ProfilePage() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        <div className="grid lg:grid-cols-2 gap-6">
-                            {/* Main video */}
-                            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Video className="w-5 h-5" />
-                                    Dashboard Camera
-                                </h3>
+                        {/* Combined video view with webcam overlay */}
+                        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                                <Video className="w-5 h-5" />
+                                Dashboard Camera
+                            </h3>
+                            <div className="relative w-full aspect-video bg-black rounded overflow-hidden">
+                                {/* Main driving video */}
                                 <video
                                     ref={videoRef}
                                     src={currentVideo.videoFile}
-                                    className="w-full rounded bg-black"
-                                    onEnded={stopSimulation}
+                                    className="w-full h-full object-cover"
+                                    onEnded={onEnd}
                                 />
-                                <div className="flex gap-3 mt-4">
-                                    <button
-                                        onClick={togglePause}
-                                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
-                                    >
-                                        {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                                        {isPaused ? 'Resume' : 'Pause'}
-                                    </button>
-                                    <button
-                                        onClick={resetSimulation}
-                                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
-                                    >
-                                        <RotateCcw className="w-4 h-4" />
-                                        Reset
-                                    </button>
-                                </div>
-                            </div>
 
-                            {/* Webcam feed */}
-                            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Camera className="w-5 h-5" />
-                                    Your Camera (Face Tracking)
-                                </h3>
-                                <div className="relative">
+                                {/* Webcam PIP overlay */}
+                                <div className="absolute top-4 right-4 w-48 h-36 rounded-lg border-2 border-slate-600 bg-slate-900 shadow-2xl overflow-hidden">
                                     <video
                                         ref={webcamRef}
                                         autoPlay
                                         playsInline
                                         muted
-                                        className="hidden"
+                                        className="w-full h-full object-cover"
+                                        style={{ transform: 'scaleX(-1)' }}
                                     />
-                                    <canvas
-                                        ref={canvasRef}
-                                        className="w-full rounded bg-slate-900"
-                                    />
-                                    {cameraReady && isRecording && (
-                                        <div className="absolute top-2 right-2 flex items-center gap-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full">
-                                            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                            Recording
-                                        </div>
-                                    )}
                                 </div>
+
+                                {/* Recording indicator */}
+                                {cameraReady && isRecording && (
+                                    <div className="absolute top-2 left-2 flex items-center gap-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full">
+                                        <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                        Recording
+                                    </div>
+                                )}
+
+                                {/* Camera label on PIP */}
+                                <div className="absolute top-2 right-2 bg-slate-900/80 text-slate-200 text-xs px-2 py-1 rounded flex items-center gap-1">
+                                    <Camera className="w-3 h-3" />
+                                    You
+                                </div>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="flex gap-3 mt-4">
+                                <button
+                                    onClick={togglePause}
+                                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
+                                >
+                                    {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                                    {isPaused ? 'Resume' : 'Pause'}
+                                </button>
+                                <button
+                                    onClick={resetSimulation}
+                                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 transition"
+                                >
+                                    <RotateCcw className="w-4 h-4" />
+                                    Reset
+                                </button>
+                                <button
+                                    onClick={exportData}
+                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Export Data
+                                </button>
                             </div>
                         </div>
 
-
+                        {/* Actions log */}
+                        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                            <h3 className="text-lg font-semibold text-white mb-3">Recorded Actions ({actions.length})</h3>
+                            <div className="max-h-48 overflow-y-auto space-y-2">
+                                {actions.length === 0 ? (
+                                    <p className="text-slate-400 text-sm">No actions recorded yet. Start checking mirrors and blind spots!</p>
+                                ) : (
+                                    actions.map((action, idx) => (
+                                        <div key={idx} className="bg-slate-700/50 px-3 py-2 rounded text-sm flex items-center justify-between">
+                                            <span className="text-white font-mono">{action.type}</span>
+                                            <span className="text-slate-400">
+                                                {action.timestamp.toFixed(2)}s (video: {action.videoTime.toFixed(2)}s)
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
 
                         {/* Expected hazards */}
                         <div className="bg-amber-900/20 border border-amber-600/50 rounded-lg p-4">
@@ -465,6 +479,7 @@ export default function ProfilePage() {
                         <li>• <strong className="text-white">EYE_LEFT/RIGHT:</strong> Move your eyes to check side mirrors</li>
                         <li>• <strong className="text-white">HEAD_LEFT/RIGHT:</strong> Turn your head to check blind spots</li>
                         <li>• Actions are recorded with precise timestamps relative to the video</li>
+                        <li>• Your camera feed appears in the top-right corner for face tracking</li>
                         <li>• Export the data after completion for AI-powered analysis of your driving awareness</li>
                     </ul>
                 </div>

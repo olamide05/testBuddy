@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: 'https://py-backend-docker-201964739461.europe-west1.run.app',
 });
 
 export const startSession = async (userId) => {
@@ -18,3 +18,8 @@ export const getProgress = async (sessionId) => {
   const response = await api.get(`/api/session/${sessionId}/progress`);
   return response.data;
 };
+
+export const analyzeVideos = async (data) => {
+  const response = await api.post('/api/analyze-driving', data);
+  return response.data;
+}
