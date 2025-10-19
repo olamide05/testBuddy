@@ -372,79 +372,104 @@ export default function TestCentresPage() {
       {/* TAB 1: Map View */}
       {activeTab === 0 && (
         <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={userLocation || defaultCenter}
-              zoom={userLocation ? 10 : 7}
-              onLoad={onLoad}
-              onUnmount={onUnmount}
-              options={mapOptions}
-            >
-              {/* User location marker */}
-              {userLocation && (
-                <Marker
-                  position={userLocation}
-                  icon={{
-                    url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                  }}
-                  title="Your Location"
-                />
-              )}
+          {/* LEFT: fixed-width map on md+ */}
+          <Grid
+            item
+            xs={12}
+            md="auto"
+            sx={{
+              // fixed width at md and up, full width on small screens
+              flex: { md: '0 0 720px' },
+              maxWidth: { md: '720px' },
+              width: { xs: '100%', md: '720px' },
+            }}
+          >
+            <Box sx={{ width: '100%' }}>
+              <GoogleMap
+                mapContainerStyle={{ ...mapContainerStyle, width: '100%' }}
+                center={userLocation || defaultCenter}
+                zoom={userLocation ? 10 : 7}
+                onLoad={onLoad}
+                onUnmount={onUnmount}
+                options={mapOptions}
+              >
+                {/* User location marker */}
+                {userLocation && (
+                  <Marker
+                    position={userLocation}
+                    icon={{
+                      url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                    }}
+                    title="Your Location"
+                  />
+                )}
 
-              {/* Centre markers */}
-              {CENTRES_DATA.map((centre) => (
-                <Marker
-                  key={centre.id}
-                  position={{ lat: centre.lat, lng: centre.lng }}
-                  onClick={() => setSelectedCentre(centre)}
-                  icon={{
-                    url: `https://maps.google.com/mapfiles/ms/icons/${centre.difficulty === 'Low' ? 'green' : centre.difficulty === 'Medium' ? 'yellow' : 'red'}-dot.png`
-                  }}
-                  title={centre.name}
-                />
-              ))}
+                {/* Centre markers */}
+                {CENTRES_DATA.map((centre) => (
+                  <Marker
+                    key={centre.id}
+                    position={{ lat: centre.lat, lng: centre.lng }}
+                    onClick={() => setSelectedCentre(centre)}
+                    icon={{
+                      url: `https://maps.google.com/mapfiles/ms/icons/${centre.difficulty === 'Low' ? 'green' : centre.difficulty === 'Medium' ? 'yellow' : 'red'}-dot.png`
+                    }}
+                    title={centre.name}
+                  />
+                ))}
 
-              {/* Info window */}
-              {selectedCentre && (
-                <InfoWindow
-                  position={{ lat: selectedCentre.lat, lng: selectedCentre.lng }}
-                  onCloseClick={() => setSelectedCentre(null)}
-                >
-                  <Box sx={{ p: 1, maxWidth: 250 }}>
-                    <Typography variant="h6" gutterBottom>{selectedCentre.name}</Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {selectedCentre.address}
-                    </Typography>
-                    <Divider sx={{ my: 1 }} />
-                    <Typography variant="body2"><strong>Wait:</strong> {selectedCentre.waitWeeks} weeks</Typography>
-                    <Typography variant="body2"><strong>Pass Rate:</strong> {selectedCentre.passRate}%</Typography>
-                    <Typography variant="body2"><strong>Phone:</strong> {selectedCentre.phone}</Typography>
-                  </Box>
-                </InfoWindow>
-              )}
+                {/* Info window */}
+                {selectedCentre && (
+                  <InfoWindow
+                    position={{ lat: selectedCentre.lat, lng: selectedCentre.lng }}
+                    onCloseClick={() => setSelectedCentre(null)}
+                  >
+                    <Box sx={{ p: 1, maxWidth: 250, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      <Typography variant="h6" gutterBottom>{selectedCentre.name}</Typography>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        {selectedCentre.address}
+                      </Typography>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="body2"><strong>Wait:</strong> {selectedCentre.waitWeeks} weeks</Typography>
+                      <Typography variant="body2"><strong>Pass Rate:</strong> {selectedCentre.passRate}%</Typography>
+                      <Typography variant="body2"><strong>Phone:</strong> {selectedCentre.phone}</Typography>
+                    </Box>
+                  </InfoWindow>
+                )}
 
-              {/* Circle around user location */}
-              {userLocation && (
-                <Circle
-                  center={userLocation}
-                  radius={50000} // 50km radius
-                  options={{
-                    fillColor: '#667eea',
-                    fillOpacity: 0.1,
-                    strokeColor: '#667eea',
-                    strokeOpacity: 0.3,
-                    strokeWeight: 2
-                  }}
-                />
-              )}
-            </GoogleMap>
+                {/* Circle around user location */}
+                {userLocation && (
+                  <Circle
+                    center={userLocation}
+                    radius={50000} // 50km radius
+                    options={{
+                      fillColor: '#667eea',
+                      fillOpacity: 0.1,
+                      strokeColor: '#667eea',
+                      strokeOpacity: 0.3,
+                      strokeWeight: 2
+                    }}
+                  />
+                )}
+              </GoogleMap>
+            </Box>
           </Grid>
 
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>📍 Your Location</Typography>
+          {/* RIGHT: flexible panel that wraps text and scrolls if content is long */}
+          <Grid
+            item
+            xs={12}
+            md
+            sx={{
+              flex: { md: '1 1 0px' },
+              minWidth: { md: 320 },
+              overflow: 'hidden',
+            }}
+          >
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                <Typography variant="h6" gutterBottom>
+                  📍 Your Location
+                </Typography>
                 
                 {/* ADDRESS SEARCH BOX */}
                 <Box sx={{ mb: 2 }}>
@@ -523,8 +548,9 @@ export default function TestCentresPage() {
               </CardContent>
             </Card>
 
+            {/* selectedCentre details card wrapped to prevent overflow */}
             {selectedCentre && (
-              <Card sx={{ mt: 2 }}>
+              <Card sx={{ mt: 2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Centre Details</Typography>
                   <Typography variant="body2" color="text.secondary" paragraph>
@@ -539,7 +565,7 @@ export default function TestCentresPage() {
                         <ListItemIcon sx={{ minWidth: 30 }}>
                           <Warning fontSize="small" color="warning" />
                         </ListItemIcon>
-                        <ListItemText primary={fail} primaryTypographyProps={{ variant: 'body2' }} />
+                        <ListItemText primary={fail} primaryTypographyProps={{ variant: 'body2', sx: { wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
                       </ListItem>
                     ))}
                   </List>
