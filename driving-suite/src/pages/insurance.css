@@ -1,0 +1,79 @@
+.insurance-container {
+    font-family: 'Poppins', sans-serif;
+    color: #fff;
+    background: linear-gradient(135deg, #0f1c2e, #152a45);
+    min-height: 100vh;
+    padding: 40px;
+    text-align: center;
+}
+
+h1 {
+    color: #ffd700;
+    font-size: 2.2rem;
+    margin-bottom: 20px;
+}
+
+.loading {
+    color: #ccc;
+    font-size: 1.2rem;
+}
+
+.intro {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    color: #d1d5db;
+}
+
+.profile-summary {
+    display: inline-block;
+    text-align: left;
+    background: #1e3353;
+    padding: 20px 30px;
+    border-radius: 12px;
+    border: 1px solid #ffd700;
+    margin-bottom: 30px;
+}
+
+.quote-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 25px;
+}
+
+.quote-card {
+    background: #1e3353;
+    border: 2px solid #ffd700;
+    border-radius: 14px;
+    width: 260px;
+    padding: 20px;
+    text-align: center;
+    transition: 0.3s ease;
+}
+
+.quote-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.2);
+}
+
+.quote-card h3 {
+    color: #ffd700;
+    margin-bottom: 10px;
+}
+
+button {
+    margin-top: 10px;
+    background: #ffd700;
+    color: #0f1c2e;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.3s ease;
+}
+
+button:hover {
+    background: #f4e04d;
+    transform: scale(1.05);
+}
