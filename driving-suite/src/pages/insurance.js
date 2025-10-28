@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import "./insurance.css";
-import { db, auth  , app} from "../firebase"; // ✅ Import the already-initialized services
+import { db, auth  , app} from "../firebase";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -81,7 +81,7 @@ const InsurancePage = () => {
       } else {
         setCurrentUser(null);
         setStatusMessage({ 
-          message: "⚠️ Please sign in to view your profile.", 
+          message: " Please sign in to view your profile.",
           isError: true 
         });
         setIsLoadingProfile(false);
@@ -120,13 +120,13 @@ const InsurancePage = () => {
             ncdYears: userData.ncdYears || prev.ncdYears,
           }));
           setStatusMessage({ 
-            message: `✅ Welcome back, ${fullName}!`, 
+            message: `Welcome back, ${fullName}!`,
             isError: false 
           });
         } else {
           console.warn("No user profile found in Firestore for UID:", currentUser.uid);
           setStatusMessage({ 
-            message: "⚠️ No profile found. Please complete your profile setup.", 
+            message: "No profile found. Please complete your profile setup.",
             isError: false 
           });
           // Use display name from auth if available
@@ -143,7 +143,7 @@ const InsurancePage = () => {
       } catch (error) {
         console.error("Error fetching profile from Firebase:", error);
         setStatusMessage({ 
-          message: `❌ Error fetching profile: ${error.message}`, 
+          message: `Error fetching profile: ${error.message}`,
           isError: true 
         });
         // Fallback to default values
@@ -182,14 +182,14 @@ const InsurancePage = () => {
   const handleLookupRegistration = async () => {
     const trimmedRegNumber = regNumber.trim().toUpperCase();
     if (!trimmedRegNumber) {
-      setStatusMessage({ message: "⚠️ Please enter a registration number.", isError: true });
+      setStatusMessage({ message: "Please enter a registration number.", isError: true });
       return;
     }
 
     // Check if user is authenticated
     if (!currentUser) {
       setStatusMessage({ 
-        message: "⚠️ Please sign in to lookup vehicle information.", 
+        message: " Please sign in to lookup vehicle information.",
         isError: true 
       });
       return;
@@ -217,10 +217,8 @@ const InsurancePage = () => {
       }
 
       // 2. Call external API
-      // SECURITY WARNING: API credentials should NOT be in client-side code
-      // TODO: Move this to a Cloud Function or backend API endpoint
       const response = await fetch(
-        `https://www.carregistrationapi.ie/api/reg.asmx/CheckIreland?RegistrationNumber=${trimmedRegNumber}&username=mahmoud2005`
+        `https://www.carregistrationapi.ie/api/reg.asmx/CheckIreland?RegistrationNumber=${trimmedRegNumber}&username=GoogleBGn`
       );
 
       // Improved error handling
@@ -301,13 +299,13 @@ const InsurancePage = () => {
 
         setProfile((prev) => ({ ...prev, car: carDetailsToCache }));
         setStatusMessage({ 
-          message: `✅ Found ${make} ${model} (${year})`, 
+          message: ` Found ${make} ${model} (${year})`,
           isError: false 
         });
       } else {
         console.warn("Incomplete vehicle data. Raw XML Response:", text);
         setStatusMessage({ 
-          message: "❌ Vehicle not found for that registration. Please check the format and try again.", 
+          message: "Vehicle not found for that registration. Please check the format and try again.",
           isError: true 
         });
       }
@@ -315,7 +313,7 @@ const InsurancePage = () => {
       console.error("Error fetching vehicle data:", err);
       
       // User-friendly error messages
-      let userMessage = "❌ Error looking up registration: ";
+      let userMessage = " Error looking up registration: ";
       if (err.message.includes("quota") || err.message.includes("limit")) {
         userMessage += "Service temporarily unavailable. Please try again later.";
       } else if (err.message.includes("not found") || err.message.includes("404")) {
